@@ -107,8 +107,16 @@
       .card.dragging { opacity: 0.45; }
       .card-list { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
       .card-head { display: flex; align-items: flex-start; gap: 0.5rem; }
-      .card-main { flex: 1; min-width: 0; background: none; border: none; padding: 0; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+      .card-main { flex: 1; min-width: 0; }
       .card-name { font-weight: 700; line-height: 1.45; }
+      a.card-name.src-name { color: var(--accent-deep); text-decoration: underline; text-decoration-color: var(--gold); text-underline-offset: 3px; }
+      a.card-name.src-name:hover { color: var(--accent); }
+      .src-arrow { color: var(--gold); font-size: 0.8em; font-weight: 700; }
+      .card-toggle { display: block; width: 100%; background: none; border: none; padding: 0; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+      .src-btn { display: inline-block; border: 1px solid var(--accent); color: var(--accent); border-radius: var(--radius); padding: 0.45rem 0.9rem; font-weight: 700; text-decoration: none; font-size: 0.875rem; }
+      .src-btn:hover { background: #e7efe9; }
+      .plan-item .nm a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: var(--gold); text-underline-offset: 3px; }
+      .plan-item .nm a:hover { color: var(--accent); }
       .chip { display: inline-block; border-radius: 9999px; padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 700; color: #fff; white-space: nowrap; }
       .chip-ok { background: var(--accent); }
       .chip-gap { background: var(--gold); }
@@ -6840,6 +6848,106 @@ function renderStep3() {
   });
 }
 
+/* 政策原文链接：依据文件标题 → 发布机构官网原文页（逐个核实过的官方地址） */
+const DOC_SRC_URLS = {
+  "2026年北京市高精尖产业发展项目资金和支持中小企业发展资金实施指南（第一批）": "https://jxj.beijing.gov.cn/zwgk/2024zcwj/202602/t20260214_4516700.html",
+  "2026年北京市高精尖产业发展项目资金和支持中小企业发展资金实施指南（第二批）": "https://jxj.beijing.gov.cn/zwgk/2024zcwj/202607/t20260730_4801241.html",
+  "北京市高精尖产业发展项目资金指南": "https://jxj.beijing.gov.cn/zwgk/2024zcwj/202602/t20260214_4516700.html",
+  "北京市西城区支持中小微企业高质量发展的若干措施": "https://www.bjxch.gov.cn/file/zcFile/20260113/1768274488889.pdf",
+  "北京市西城区促进数据产业高质量发展的若干措施": "https://www.bjxch.gov.cn/file/zcFile/20251017/1760693829779101.pdf",
+  "丰台区支持人工智能科技创新和产业创新融合发展的若干措施": "https://www.ncsti.gov.cn/kjdt/tzgg/202602/t20260209_237793.html",
+  "怀柔区促进先进制造业及软件和信息技术服务业高质量发展扶持办法": "https://www.ncsti.gov.cn/kjdt/scyq/hrkxc/yhzc/202508/t20250807_215391.html",
+  "石景山区关于激发企业活力加快发展新质生产力的若干措施": "https://www.bjsjs.gov.cn/gongkai/zcwj/202512/P020251231369516549861.pdf",
+  "顺义区促进高端制造业和先进软件信息业高质量发展的扶持办法": "https://www.ncsti.gov.cn/kjdt/yqdy/syy2/syyzc/202410/t20241012_181877.html",
+  "北京市东城区促进中小企业创新发展的若干措施": "https://www.bjdch.gov.cn/zwgk/zcwj2024/202511/t20251108_4266212.html",
+  "北京市东城区关于推动科技创新发展的若干措施": "https://www.bjdch.gov.cn/zwgk/zcwj2024/202511/t20251114_4281360.html",
+  "北京市东城区推动数字经济产业高质量发展的若干措施": "https://www.bjdch.gov.cn/zwgk/zcwj2024/202511/t20251121_4291891.html",
+  "北京市东城区推动文化产业高质量发展的若干措施": "https://www.bjdch.gov.cn/zwgk/zcwj2024/202511/t20251114_4281386.html",
+  "海淀区支持科技中小企业创新发展的若干措施": "https://www.ncsti.gov.cn/zcfg/zcwj/202510/t20251030_223669.html",
+  "中关村科学城加快建设具有全球影响力人工智能产业高地的若干措施": "https://www.ncsti.gov.cn/zcfg/zcwj/202509/t20250909_218586.html",
+  "昌平区加快高新技术企业培育发展支持办法": "https://www.beijing.gov.cn/zhengce/gfxwj/202305/t20230516_3104753.html",
+  "朝阳区加快推进中小企业梯度培育若干措施": "https://english.bjchy.gov.cn/node/626",
+  "石景山区推进北京国际科技创新中心建设加快创新发展支持办法": "https://www.ncsti.gov.cn/zcfg/zcwj/202206/t20220615_83387.html",
+  "北京经济技术开发区关于进一步激发创新活力打造高精尖产业主阵地的若干意见": "https://www.ncsti.gov.cn/kjdt/yqdy/zcwj/202504/t20250417_201960.html",
+  "优质中小企业梯度培育管理办法": "https://wap.miit.gov.cn/zwgk/zcwj/wjfb/tz/art/2026/art_5546b1a622ea4d73bd2ca395b73bd4eb.html",
+  "专精特新中小企业认定标准": "https://wap.miit.gov.cn/zwgk/zcwj/wjfb/tz/art/2026/art_5546b1a622ea4d73bd2ca395b73bd4eb.html",
+  "专精特新“小巨人”企业认定标准": "https://wap.miit.gov.cn/zwgk/zcwj/wjfb/tz/art/2026/art_5546b1a622ea4d73bd2ca395b73bd4eb.html",
+  "高新技术企业认定管理办法": "https://most.gov.cn/tztg/201602/t20160204_123994.html",
+  "绿色工厂梯度培育及管理暂行办法": "https://www.miit.gov.cn/jgsj/jns/lszz/art/2024/art_2ec4f019980543808c8af6eb33685bb3.html",
+  "关于进一步完善首台（套）重大技术装备首批次新材料保险补偿政策的意见": "http://www.miit.gov.cn/jgsj/ycls/wjfb/art/2024/art_93cf085e7c174a8d96185057c1302583.html",
+  "财政部税务总局关于进一步完善研发费用税前加计扣除政策的公告": "https://www.chinatax.gov.cn/chinatax/n810341/n810765/c102408/202301/c5196137/content.html",
+  "财政部国家税务总局关于软件产品增值税政策的通知": "https://fgk.chinatax.gov.cn/zcfgk/c102416/c5204304/content.html",
+  "财政部税务总局发展改革委工业和信息化部关于促进集成电路产业和软件产业高质量发展企业所得税政策的公告": "http://guangxi.chinatax.gov.cn/zcwj/zxwj/202012/t20201225_328783.html",
+  "北京市促进医疗器械产业高质量发展若干措施": "https://jxj.beijing.gov.cn/zwgk/2024zcwj/202511/t20251124_4302358.html",
+  "北京市关于加快打造信息技术应用创新产业高地的若干政策措施": "https://www.beijing.gov.cn/zhengce/zhengcefagui/202305/t20230511_3092996.html",
+  "北京市支持科技服务业高质量发展若干措施": "https://www.beijing.gov.cn/zhengce/zhengcefagui/202501/t20250121_3994969.html",
+  "北京市推动软件和信息服务业高质量发展的若干政策措施": "https://www.beijing.gov.cn/gate/big5/www.beijing.gov.cn/zhengce/gfxwj/202208/t20220803_2785023.html",
+  "支持创新药合同研发生产机构提质增效的若干措施": "https://kw.beijing.gov.cn/zwgk/zcwj/202602/t20260214_4516944.html",
+  "进一步提升本市中试服务能力促进科技创新和产业创新融合发展若干措施": "https://www.ncsti.gov.cn/zcfg/zcwj/202601/t20260105_234299.html",
+  "北京高精尖产业设计中心认定管理办法": "https://jxj.beijing.gov.cn/zwgk/2024zcwj/202406/t20240621_3723803.html",
+  "实施首都标准化战略补助资金管理办法": "https://www.beijing.gov.cn/zhengce/zhengcefagui/202406/t20240614_3713207.html",
+  "北京市科技型企业孵化器管理办法": "https://kw.beijing.gov.cn/zwgk/zcwj/202512/t20251230_4378960.html",
+  "北京市技术转移机构及技术经理人登记办法": "https://kw.beijing.gov.cn/zwgk/zcwj/202603/t20260325_4565442.html",
+  "北京市概念验证平台建设工作指引": "https://www.ncsti.gov.cn/zcfg/zcwj/202604/t20260414_243826.html",
+  "北京市医疗器械快速审评审批办法": "http://yjj.beijing.gov.cn/yjj/zwgk20/zcwj91/743723390/index.html",
+  "北京市知识产权试点优势单位认定与管理办法": "https://www.beijing.gov.cn/zhengce/zhengcefagui/202410/t20241008_3912325.html",
+  "北京市高价值专利扶持资金实施办法": "https://www.beijing.gov.cn/zhengce/zhengcefagui/202611/t20261103_4930459.html",
+  "中关村国家自主创新示范区提升企业创新能力支持资金管理办法": "https://www.beijing.gov.cn/zhengce/gfxwj/sj/202411/t20241129_3952605.html",
+  "2026年工业和信息化领域创新任务揭榜挂帅工作": "https://www.miit.gov.cn/zwgk/zcwj/wjfb/tz/art/2026/art_286751ceaf944364b5c282cacd71cb09.html",
+  "关于开展2026年工业和信息化领域创新任务揭榜挂帅工作的通知": "https://www.miit.gov.cn/zwgk/zcwj/wjfb/tz/art/2026/art_286751ceaf944364b5c282cacd71cb09.html",
+  "关于开展2026年度人形机器人与具身智能实景实训专项行动的通知": "https://www.miit.gov.cn/jgsj/kjs/wjfb/art/2026/art_cd666691abf8471fb8553d463aa416e3.html",
+  "关于开展高端医疗装备推广应用项目申报工作的通知": "https://www.miit.gov.cn/zwgk/zcwj/wjfb/tz/art/2026/art_a71dece5351c40268b0ae98b42f2c0b4.html"
+};
+const NAME_SRC_URLS = {
+  "北京市专精特新中小企业认定": "https://wap.miit.gov.cn/zwgk/zcwj/wjfb/tz/art/2026/art_5546b1a622ea4d73bd2ca395b73bd4eb.html",
+  "国家专精特新“小巨人”企业": "https://wap.miit.gov.cn/zwgk/zcwj/wjfb/tz/art/2026/art_5546b1a622ea4d73bd2ca395b73bd4eb.html",
+  "高新技术企业认定": "https://most.gov.cn/tztg/201602/t20160204_123994.html",
+  "专用设备数字化智能化改造企业所得税抵免": "https://fgk.chinatax.gov.cn/zcfgk/c102416/c5232952/content.html",
+  "先进制造业企业增值税加计抵减": "https://shanghai.chinatax.gov.cn/zcfw/zcfgk/zzs/202309/t468611.html",
+  "北京市企业技术中心": "https://jxj.beijing.gov.cn/jxdt/tzgg/202308/t20230802_3212836.html",
+  "中国专利奖": "https://www.cnipa.gov.cn/art/2025/10/29/art_394_202263.html",
+  "北京市首台（套）重大技术装备产品": "https://fgw.beijing.gov.cn/fgwzwgk/2024zcwj/bwqtwj/202601/t20260116_4437384.htm",
+  "北京市新技术新产品（服务）认定": "https://www.beijing.gov.cn/gate/big5/www.beijing.gov.cn/zhengce/zhengcefagui/202409/t20240924_3905312.html",
+  "北京市知识产权试点单位/专利产品备案": "https://www.beijing.gov.cn/zhengce/zhengcefagui/202410/t20241008_3912325.html",
+  "北京市知识产权试点单位/优势单位": "https://www.beijing.gov.cn/zhengce/zhengcefagui/202410/t20241008_3912325.html"
+};
+function normDocTitle(s) { return String(s == null ? "" : s).replace(/\s+/g, ""); }
+const DOC_SRC_KEYS = Object.keys(DOC_SRC_URLS).map((k) => [normDocTitle(k), DOC_SRC_URLS[k]]);
+function coreDocTitle(t) {
+  let s = t;
+  const i = s.indexOf("印发");
+  if (i > 0 && i <= 24) s = s.slice(i + 2);
+  return s.replace(/的通知$/, "").replace(/的公告$/, "");
+}
+function policySrcUrl(policy) {
+  if (Object.prototype.hasOwnProperty.call(NAME_SRC_URLS, policy.name)) return NAME_SRC_URLS[policy.name];
+  const titles = String(policy.cond || "").match(/《[^》]+》/g) || [];
+  const cited = [];
+  for (const raw of titles) {
+    const t = normDocTitle(raw.slice(1, -1));
+    if (t) cited.push(t);
+  }
+  for (const t of cited) {
+    for (const pair of DOC_SRC_KEYS) { if (t === pair[0]) return pair[1]; }
+  }
+  for (const t of cited) {
+    const c = coreDocTitle(t);
+    if (c === t) continue;
+    for (const pair of DOC_SRC_KEYS) { if (c === pair[0]) return pair[1]; }
+  }
+  for (const t of cited) {
+    for (const pair of DOC_SRC_KEYS) {
+      if (Math.min(t.length, pair[0].length) >= 12 && (t.indexOf(pair[0]) >= 0 || pair[0].indexOf(t) >= 0)) return pair[1];
+    }
+  }
+  return null;
+}
+function srcNameHtml(policy) {
+  const u = policySrcUrl(policy);
+  if (!u) return '<span class="card-name">' + esc(policy.name) + "</span>";
+  return '<a class="card-name src-name" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer" title="在发布机构官网查看政策原文">' + esc(policy.name) + ' <span class="src-arrow" aria-hidden="true">↗</span></a>';
+}
+
 const STATUS_CHIP = { "符合": "chip-ok", "差条件": "chip-gap", "待确认": "chip-pending", "已持有": "chip-held" };
 function timingHtml(r, p) {
   const t = L.suggestTiming(r.policy, r, p);
@@ -6870,18 +6978,21 @@ function cardHtml(r, p, opts) {
     detail += "<p><b>基本条件：</b>" + esc(r.policy.cond) + "</p>" +
       "<p><b>项目利好：</b>" + esc(r.policy.ben) + "</p>";
     if (r.notes.length) detail += '<p class="small">' + esc(r.notes.join("；")) + "</p>";
+    const srcU = policySrcUrl(r.policy);
+    if (srcU) detail += '<p><a class="src-btn" href="' + esc(srcU) + '" target="_blank" rel="noopener noreferrer">在官方网站查看原文 ↗</a></p>';
     detail += "</div>";
   }
   const dragAttrs = opts && opts.zone === "included" ? ' draggable="true" data-dragkey="' + esc(key) + '"' : "";
   return '<div class="card" data-card="' + esc(key) + '"' + dragAttrs + '>' +
     '<div class="card-head">' +
     (opts && opts.zone === "included" ? '<span class="drag-handle" aria-hidden="true" title="拖动排序">⠿</span>' : "") +
-    '<button type="button" class="card-main" data-act="toggle" data-key="' + esc(key) + '" aria-expanded="' + expanded + '">' +
-    '<span class="card-name">' + esc(r.policy.name) + '</span> <span class="chip ' + STATUS_CHIP[r.status] + '">' + (r.status === "已持有" ? "✓ 已持有" : r.status) + "</span>" +
+    '<div class="card-main">' +
+    '<div>' + srcNameHtml(r.policy) + ' <span class="chip ' + STATUS_CHIP[r.status] + '">' + (r.status === "已持有" ? "✓ 已持有" : r.status) + "</span></div>" +
+    '<button type="button" class="card-toggle" data-act="toggle" data-key="' + esc(key) + '" aria-expanded="' + expanded + '">' +
     '<span class="card-oneline">' + esc(L.oneLiner(r)) + "</span>" +
     (opts && opts.zone === "excluded" ? '<span class="card-sub">你手动去掉的</span>' : "") +
     timingHtml(r, p) +
-    "</button>" + actions + "</div>" + detail + "</div>";
+    "</button></div>" + actions + "</div>" + detail + "</div>";
 }
 
 function renderStep4() {
@@ -6891,7 +7002,8 @@ function renderStep4() {
   h += '<section aria-label="第 4 步：匹配结果">' +
     '<h1 class="page-title">匹配结果</h1>' +
     '<p class="lede">' + esc(p.name) + " · " + esc(p.district) + (L.industryFullLabel(p) ? " · " + esc(L.industryFullLabel(p)) : "") +
-    "。共匹配 " + c.results.length + " 条：已纳入 " + c.included.length + " 条、未纳入 " + c.excluded.length + " 条、已持有 " + c.held.length + " 条。</p>";
+    "。共匹配 " + c.results.length + " 条：已纳入 " + c.included.length + " 条、未纳入 " + c.excluded.length + " 条、已持有 " + c.held.length + " 条。</p>" +
+    '<p class="fine" style="margin-top:0.25rem">政策名称带 ↗ 的，点击可直达发布机构官网的原文页面。</p>';
   if (!L.hasSpecificBuckets(p)) {
     h += '<p class="note-box">当前行业' + (p.industryCat || p.industryMajor ? "暂无专项政策口径" : "未选择") + "，现在只匹配全行业通用政策；回第 2 步选上行业大类，还能补出该行业的专项政策。</p>";
   }
@@ -6923,9 +7035,13 @@ function renderStep5() {
     '<div class="preview-grid"><div>' +
     '<h2 class="zone-title" style="margin-top:0">项目清单（' + c.included.length + " 条）</h2>" +
     '<ol class="plan-list">' +
-    c.included.map((r, i) =>
-      '<li class="plan-item"><span class="idx">' + (i + 1) + '</span><span style="flex:1;min-width:0"><span class="nm">' + esc(r.policy.name) + '</span><span class="meta">' + esc(r.policy.dept) + " · " + esc(L.planYear(r, p)) + '</span></span><span class="chip ' + STATUS_CHIP[r.status] + '">' + r.status + "</span></li>"
-    ).join("") + "</ol>" +
+    c.included.map((r, i) => {
+      const su = policySrcUrl(r.policy);
+      const nm = su
+        ? '<a href="' + esc(su) + '" target="_blank" rel="noopener noreferrer" title="在发布机构官网查看政策原文">' + esc(r.policy.name) + ' <span class="src-arrow" aria-hidden="true">↗</span></a>'
+        : esc(r.policy.name);
+      return '<li class="plan-item"><span class="idx">' + (i + 1) + '</span><span style="flex:1;min-width:0"><span class="nm">' + nm + '</span><span class="meta">' + esc(r.policy.dept) + " · " + esc(L.planYear(r, p)) + '</span></span><span class="chip ' + STATUS_CHIP[r.status] + '">' + r.status + "</span></li>";
+    }).join("") + "</ol>" +
     (c.included.length === 0 ? '<p class="lede">清单是空的，请回第 4 步纳入项目后再出书。</p>' : "") +
     "</div><div>" +
     '<h2 class="zone-title" style="margin-top:0">企业概况（将填入规划书）</h2>' +
