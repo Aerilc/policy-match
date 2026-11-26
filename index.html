@@ -4,172 +4,318 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
     <link rel="icon" href="data:," />
     <title>政策匹配系统·网址版</title>
     <style>
+
       :root {
-        --bg: #f7f2e7;
-        --surface: #fffdf7;
-        --surface-alt: #efe8d5;
-        --text: #23281f;
-        --dim: #5a6650;
-        --border: #ddd2b4;
-        --accent: #1e4d3b;
-        --accent-deep: #143627;
-        --gold: #b98a1f;
-        --gold-bright: #c9a227;
-        --gold-soft: #f3e5bd;
-        --danger: #a33327;
-        --radius: 10px;
-        --font-display: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+        --paper: #F2F0E9;
+        --ink: #0A0A0A;
+        --yellow: #FFE500;
+        --blue: #1A46FF;
+        --cn: "PingFang SC", "Microsoft YaHei", "Archivo Black", sans-serif;
+        --en: "Archivo Black", "Arial Black", sans-serif;
+        --mono: "Space Mono", "Courier New", monospace;
+        --hudT: 64px;
+        --hudB: 84px;
       }
       * { box-sizing: border-box; }
+      html, body { height: 100%; }
       body {
         margin: 0;
-        background: var(--bg);
-        color: var(--text);
-        font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--cn);
         font-size: 16px;
-        line-height: 1.5;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
       }
-      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2.25rem; }
-      input[type="checkbox"] { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); flex-shrink: 0; }
-      .font-display { font-family: var(--font-display); }
-      .wrap { margin: 0 auto; width: 100%; max-width: 48rem; padding: 1.25rem 1rem 4rem; }
-      @media (min-width: 640px) { .wrap { padding-left: 1.5rem; padding-right: 1.5rem; } }
+      body.lock { overflow: hidden; }
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2.75rem; }
+      input[type="checkbox"] { width: 1.15rem; height: 1.15rem; accent-color: var(--blue); flex-shrink: 0; }
+      .font-display { font-family: var(--cn); font-weight: 900; }
 
-      /* 步骤进度条 */
-      .steps { display: flex; align-items: flex-start; list-style: none; margin: 0 0 0.5rem; padding: 0; }
-      .steps li { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; }
-      .steps .bar { position: absolute; left: -50%; top: 1.25rem; height: 2px; width: 100%; background: var(--border); }
-      .steps .bar.done { background: var(--accent); }
+      /* ── 画布底：整屏就是一块板 ── */
+      .stage { position: fixed; inset: 0; z-index: 0; background: var(--paper); pointer-events: none; }
+
+      /* ── 上下 HUD 浮层：不占文档流，只给按钮恢复指针 ── */
+      .hud {
+        position: fixed; left: 0; right: 0; z-index: 40;
+        display: flex; align-items: center; justify-content: space-between; gap: 16px;
+        padding: 0 clamp(14px, 2.5vw, 36px);
+        background: var(--paper);
+        pointer-events: none;
+      }
+      .hud button { pointer-events: auto; }
+      .hud.top { top: 0; height: var(--hudT); border-bottom: 3px solid var(--ink); }
+      .hud.bottom { bottom: 0; height: var(--hudB); border-top: 3px solid var(--ink); }
+
+      /* 顶部步骤块：方块序号 + 粗线 */
+      .hud-steps { display: flex; align-items: center; gap: clamp(8px, 1.6vw, 20px); list-style: none; margin: 0; padding: 0; }
+      .hud-steps li { display: flex; align-items: center; gap: 8px; }
       .step-dot {
         position: relative; z-index: 1; display: flex; height: 2.5rem; width: 2.5rem;
-        align-items: center; justify-content: center; border-radius: 9999px;
-        border: 2px solid var(--border); background: var(--surface); color: var(--dim);
-        font-family: var(--font-display); font-size: 1rem; font-weight: 700; padding: 0;
+        align-items: center; justify-content: center; border-radius: 0;
+        border: 3px solid var(--ink); background: var(--paper); color: var(--ink);
+        font-family: var(--en); font-size: 0.95rem; line-height: 1; padding: 0; min-height: 2.5rem;
       }
-      .step-dot.current { border-color: var(--gold); background: var(--accent); color: #fff; box-shadow: 0 0 0 3px var(--gold-soft); }
-      .step-dot.done { border-color: var(--accent); background: var(--accent); color: #fff; }
-      .step-dot.clickable { cursor: pointer; }
-      .step-label { margin-top: 0.375rem; text-align: center; font-size: 0.75rem; line-height: 1.25; color: var(--dim); }
-      .step-label.current { font-weight: 700; color: var(--accent); }
-      .gold-rule { border-top: 2px solid var(--gold); position: relative; margin: 0.75rem 0 1.5rem; }
-      .gold-rule::after { content: ""; position: absolute; top: 3px; left: 0; right: 0; border-top: 1px solid var(--gold-bright); }
+      .step-dot.current { background: var(--yellow); color: var(--ink); box-shadow: 5px 5px 0 var(--blue); }
+      .step-dot.done { background: var(--ink); color: var(--paper); }
+      .step-dot.clickable { cursor: pointer; transition: transform 0.12s ease, box-shadow 0.12s ease; }
+      .step-dot.clickable:hover { transform: translate(2px, 2px); }
+      .step-label { font-family: var(--mono); font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; line-height: 1.4; color: var(--ink); white-space: nowrap; }
+      .step-label.current { background: var(--yellow); padding: 0 4px; }
+      .hud-hint { font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; line-height: 1.9; text-align: right; color: var(--ink); white-space: nowrap; }
+      .hud-hint b { color: var(--blue); }
 
-      h1.page-title { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--accent-deep); margin: 0; }
-      h2.zone-title { font-family: var(--font-display); font-size: 1.125rem; font-weight: 700; color: var(--accent); margin: 1.75rem 0 0; }
-      h2.zone-title.dim { color: var(--dim); }
+      /* 底部读数与画布控制 */
+      .meta { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--ink); white-space: nowrap; }
+      .meta b { color: var(--blue); font-weight: 700; }
+      .meta .sep { margin: 0 4px; opacity: 0.4; }
+      .ctrls { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; }
+      .ctrl-sep { width: 3px; align-self: stretch; background: var(--ink); margin: 4px 2px; }
+      .ctrl-btn {
+        font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+        padding: 9px 12px; min-height: 2.5rem; border: 3px solid var(--ink); border-radius: 0;
+        background: var(--paper); color: var(--ink); cursor: pointer;
+        box-shadow: 4px 4px 0 var(--ink);
+        transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, color 0.12s ease;
+        white-space: nowrap;
+      }
+      .ctrl-btn:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
+      .ctrl-btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+      /* ── 坐标空间：卡片活在整个视口里 ── */
+      .canvas {
+        position: fixed; left: 0; right: 0; top: var(--hudT); bottom: var(--hudB); z-index: 10;
+        user-select: none; -webkit-user-select: none;
+        touch-action: pan-y;
+      }
+      .canvas input, .canvas select, .canvas textarea { user-select: text; -webkit-user-select: text; }
+
+      /* ── 可拖卡片：野兽派纸片 ── */
+      .note {
+        position: absolute; top: 0; left: 0;
+        padding: 18px 20px 20px;
+        background: var(--paper);
+        border: 3px solid var(--ink); border-radius: 0;
+        box-shadow: 8px 8px 0 var(--ink);
+        cursor: grab; touch-action: none; will-change: transform;
+        transition: box-shadow 0.15s ease;
+      }
+      .note:active { cursor: grabbing; }
+      .note.dragging { box-shadow: 14px 14px 0 var(--blue); transition: none; }
+      .note .k { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; color: var(--blue); margin-bottom: 8px; text-transform: uppercase; }
+      .note.intro { background: var(--yellow); }
+      .note.intro .k { color: var(--ink); }
+      .note.ok-note { background: var(--blue); color: var(--paper); }
+      .note.ok-note .k { color: var(--yellow); }
+      .note.ok-note p { margin: 0; font-size: 0.9375rem; font-weight: 700; line-height: 1.7; }
+      .note.w-s { width: 320px; }
+      .note.w-m { width: 380px; }
+      .note.w-l { width: 440px; }
+      .note.w-xl { width: 520px; }
+      .note.w-xxl { width: 560px; }
+      .card-fields { display: flex; flex-direction: column; gap: 1rem; }
+
+      h1.page-title {
+        font-family: var(--cn); font-weight: 900;
+        font-size: clamp(1.75rem, 3.4vw, 2.625rem);
+        line-height: 1.05; letter-spacing: -0.04em;
+        color: var(--ink); margin: 0; margin-left: -2px;
+        -webkit-text-stroke: 1px var(--ink);
+      }
+      .results-panel h1.page-title { font-size: clamp(2rem, 5vw, 3.25rem); }
+      h2.zone-title { font-family: var(--cn); font-weight: 900; font-size: clamp(1.375rem, 3.4vw, 1.75rem); letter-spacing: -0.03em; line-height: 1.15; color: var(--ink); margin: 2.25rem 0 0; }
       button.zone-toggle { background: none; border: none; cursor: pointer; padding: 0.5rem 0; text-align: left; font: inherit; }
-      .lede { margin-top: 0.5rem; font-size: 0.875rem; line-height: 1.7; color: var(--dim); }
-      .note-box { margin-top: 1rem; border: 1px solid var(--gold); background: var(--gold-soft); border-radius: var(--radius); padding: 0.75rem 1rem; font-size: 0.875rem; line-height: 1.7; }
-      .error-text { margin-top: 0.5rem; font-size: 0.875rem; color: var(--danger); }
-      .fine { margin-top: 1rem; font-size: 0.75rem; line-height: 1.7; color: var(--dim); }
+      button.zone-toggle:hover { background: var(--yellow); }
+      .lede { margin-top: 0.75rem; font-size: 1.0625rem; line-height: 1.7; color: var(--ink); max-width: 68ch; }
+      .note .lede { font-size: 0.9375rem; line-height: 1.65; margin-top: 0.625rem; }
+      .note-box { margin-top: 1.25rem; border: 3px solid var(--ink); background: var(--yellow); box-shadow: 5px 5px 0 var(--ink); padding: 0.875rem 1rem; font-size: 0.9375rem; font-weight: 700; line-height: 1.7; }
+      .error-text { margin-top: 0.75rem; border: 3px solid var(--ink); background: var(--paper); padding: 0.625rem 0.875rem; font-size: 0.9375rem; font-weight: 700; color: var(--ink); }
+      .note .error-text { background: var(--paper); }
+      .fine { margin-top: 1.25rem; font-family: var(--mono); font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.1em; line-height: 1.6; color: var(--ink); text-transform: uppercase; }
+      .note .fine { margin-top: 0.875rem; }
 
       .field { display: block; }
-      .field > .flabel { display: block; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 700; }
-      .req { color: var(--danger); font-weight: 700; }
+      .field > .flabel { display: block; margin-bottom: 0.5rem; font-family: var(--mono); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; }
+      .req { color: var(--blue); font-weight: 700; }
       .inp, .sel {
-        width: 100%; border: 1px solid var(--border); background: var(--surface);
-        border-radius: var(--radius); padding: 0.625rem 0.75rem; font: inherit; font-size: 1rem;
-        color: var(--text); outline: none;
+        width: 100%; border: 3px solid var(--ink); background: var(--paper);
+        border-radius: 0; padding: 0.625rem 0.75rem; font: inherit; font-size: 1rem;
+        color: var(--ink); outline: none;
       }
-      .inp:focus, .sel:focus { border-color: var(--accent); }
-      .sel:disabled { opacity: 0.5; }
-      .form-stack { margin-top: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
-      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-      .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
-      @media (max-width: 560px) { .grid3 { grid-template-columns: 1fr 1fr; } }
+      .note.intro .inp, .note .inp { background: #fff; }
+      .inp::placeholder { color: rgba(10, 10, 10, 0.45); }
+      .inp:focus, .sel:focus { box-shadow: 4px 4px 0 var(--blue); }
+      .sel:disabled { opacity: 0.45; }
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+      .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
 
       .btn {
-        border-radius: var(--radius); padding: 0.75rem 1.5rem; font: inherit; font-weight: 700;
-        cursor: pointer; border: 1px solid transparent;
+        border-radius: 0; padding: 0.75rem 1.5rem; font-family: var(--en); font-size: 0.9375rem;
+        letter-spacing: 0.02em; cursor: pointer; border: 3px solid var(--ink);
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+        white-space: nowrap;
       }
-      .btn-primary { background: var(--accent); color: #fff; }
-      .btn-primary:disabled { opacity: 0.5; cursor: default; }
-      .btn-outline { background: transparent; border-color: var(--accent); color: var(--accent); }
-      .btn-ghost { background: none; border: none; color: var(--dim); text-decoration: underline; font-size: 0.875rem; padding: 0.75rem; }
-      .nav-row { margin-top: 2rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+      .btn-primary { background: var(--ink); color: var(--paper); box-shadow: 5px 5px 0 var(--blue); }
+      .btn-primary:hover { transform: translate(3px, 3px); box-shadow: 2px 2px 0 var(--blue); }
+      .btn-primary:disabled { opacity: 0.4; cursor: default; transform: none; box-shadow: 5px 5px 0 var(--blue); }
+      .btn-outline { background: var(--yellow); color: var(--ink); box-shadow: 5px 5px 0 var(--ink); }
+      .btn-outline:hover { transform: translate(3px, 3px); box-shadow: 2px 2px 0 var(--ink); }
+      .btn-ghost { background: none; border: none; box-shadow: none; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; font-family: var(--mono); font-size: 0.8125rem; font-weight: 700; padding: 0.75rem; }
+      .btn-ghost:hover { background: var(--yellow); transform: none; }
 
       fieldset.qual { border: none; margin: 0; padding: 0; }
-      fieldset.qual legend { font-size: 0.875rem; font-weight: 700; padding: 0; }
-      .qual-grid { margin-top: 0.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+      fieldset.qual legend { font-family: var(--mono); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; padding: 0; }
+      .qual-grid { margin-top: 0.625rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; }
       @media (min-width: 640px) { .qual-grid { grid-template-columns: 1fr 1fr 1fr; } }
       .qual-item {
         display: flex; cursor: pointer; align-items: center; gap: 0.5rem;
-        border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius);
+        border: 3px solid var(--ink); background: var(--paper); border-radius: 0;
         padding: 0.625rem 0.75rem; font-size: 0.875rem; min-height: 2.75rem;
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
       }
-      .qual-item.checked { border-color: var(--accent); background: #e7efe9; font-weight: 700; color: var(--accent-deep); }
+      .qual-item:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
+      .qual-item.checked { background: var(--yellow); font-weight: 700; color: var(--ink); box-shadow: 4px 4px 0 var(--ink); }
+
+      /* 第 4 步：结果滚动面板（套画布外壳，不可拖） */
+      .results-panel {
+        position: absolute; inset: 16px clamp(10px, 2.5vw, 36px) 20px;
+        border: 3px solid var(--ink); background: var(--paper);
+        box-shadow: 10px 10px 0 var(--ink);
+        overflow-y: auto; overscroll-behavior: contain;
+        padding: 26px clamp(16px, 3vw, 38px) 44px;
+        user-select: text; -webkit-user-select: text;
+      }
 
       /* 政策卡片 */
-      .card { border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius); padding: 0.75rem 1rem; }
+      .card { border: 3px solid var(--ink); background: var(--paper); border-radius: 0; box-shadow: 8px 8px 0 var(--ink); padding: 1.25rem 1.25rem 1.375rem; transition: transform 0.12s ease, box-shadow 0.12s ease; }
+      .card:hover { transform: translate(4px, 4px); box-shadow: 4px 4px 0 var(--ink); }
       .card.dragging { opacity: 0.45; }
-      .card-list { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
+      .card-list { margin-top: 1rem; display: flex; flex-direction: column; gap: 1.25rem; }
       .card-head { display: flex; align-items: flex-start; gap: 0.5rem; }
       .card-main { flex: 1; min-width: 0; }
-      .card-name { font-weight: 700; line-height: 1.45; }
-      a.card-name.src-name { color: var(--accent-deep); text-decoration: underline; text-decoration-color: var(--gold); text-underline-offset: 3px; }
-      a.card-name.src-name:hover { color: var(--accent); }
-      .src-arrow { color: var(--gold); font-size: 0.8em; font-weight: 700; }
+      .card-name { font-weight: 900; font-size: 1.0625rem; letter-spacing: -0.01em; line-height: 1.45; }
+      a.card-name.src-name { color: var(--ink); text-decoration: underline; text-decoration-color: var(--blue); text-decoration-thickness: 3px; text-underline-offset: 4px; }
+      a.card-name.src-name:hover { background: var(--yellow); }
+      .src-arrow { color: var(--blue); font-family: var(--en); font-size: 0.85em; }
       .card-toggle { display: block; width: 100%; background: none; border: none; padding: 0; text-align: left; cursor: pointer; font: inherit; color: inherit; }
-      .src-btn { display: inline-block; border: 1px solid var(--accent); color: var(--accent); border-radius: var(--radius); padding: 0.45rem 0.9rem; font-weight: 700; text-decoration: none; font-size: 0.875rem; }
-      .src-btn:hover { background: #e7efe9; }
-      .plan-item .nm a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: var(--gold); text-underline-offset: 3px; }
-      .plan-item .nm a:hover { color: var(--accent); }
-      .chip { display: inline-block; border-radius: 9999px; padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 700; color: #fff; white-space: nowrap; }
-      .chip-ok { background: var(--accent); }
-      .chip-gap { background: var(--gold); }
-      .chip-pending { background: #8a8f7d; }
-      .chip-held { background: var(--accent); }
-      .card-oneline { display: block; margin-top: 0.25rem; font-size: 0.875rem; line-height: 1.6; color: var(--dim); }
-      .card-sub { display: block; margin-top: 0.125rem; font-size: 0.75rem; line-height: 1.6; color: var(--gold); }
-      .card-timing { display: block; margin-top: 0.125rem; font-size: 0.75rem; color: var(--dim); }
-      .card-timing .yr { font-family: var(--font-display); font-size: 0.875rem; font-weight: 700; color: var(--gold); }
-      .card-actions { display: flex; flex-shrink: 0; align-items: center; }
-      .icon-btn { background: none; border: none; cursor: pointer; padding: 0.5rem; color: var(--dim); font: inherit; min-width: 2.25rem; }
+      .src-btn { display: inline-block; border: 3px solid var(--ink); background: var(--yellow); color: var(--ink); border-radius: 0; box-shadow: 4px 4px 0 var(--ink); padding: 0.5rem 0.9rem; font-weight: 700; text-decoration: none; font-size: 0.875rem; transition: transform 0.12s ease, box-shadow 0.12s ease; }
+      .src-btn:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
+      .plan-item .nm a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--blue); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+      .plan-item .nm a:hover { background: var(--yellow); }
+      .chip { display: inline-block; border: 2px solid var(--ink); border-radius: 0; padding: 0.125rem 0.5rem; font-family: var(--mono); font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; white-space: nowrap; vertical-align: 0.15em; }
+      .chip-ok { background: var(--ink); color: var(--paper); }
+      .chip-gap { background: var(--yellow); color: var(--ink); }
+      .chip-pending { background: var(--paper); color: var(--ink); }
+      .chip-held { background: var(--blue); color: var(--paper); border-color: var(--ink); }
+      .card-oneline { display: block; margin-top: 0.375rem; font-size: 0.9375rem; line-height: 1.65; color: var(--ink); }
+      .card-sub { display: block; margin-top: 0.25rem; font-family: var(--mono); font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; color: var(--blue); }
+      .card-timing { display: block; margin-top: 0.25rem; font-family: var(--mono); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; color: var(--ink); }
+      .card-timing .yr { font-family: var(--en); font-size: 1rem; color: var(--blue); }
+      .card-actions { display: flex; flex-shrink: 0; align-items: center; gap: 0.375rem; }
+      .icon-btn { background: var(--paper); border: 2px solid var(--ink); border-radius: 0; cursor: pointer; padding: 0.375rem 0.5rem; color: var(--ink); font: inherit; font-weight: 700; min-width: 2.25rem; }
+      .icon-btn:hover { background: var(--yellow); }
       .icon-btn:disabled { opacity: 0.3; cursor: default; }
-      .remove-btn { background: none; border: none; cursor: pointer; padding: 0.5rem; font: inherit; font-weight: 700; color: var(--danger); }
-      .addback-btn { background: none; border: none; cursor: pointer; padding: 0.5rem; font: inherit; font-weight: 700; color: var(--accent); }
-      .card-detail { margin-top: 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem; font-size: 0.875rem; line-height: 1.7; }
+      .icon-btn:disabled:hover { background: var(--paper); }
+      .remove-btn { background: none; border: 2px solid var(--ink); border-radius: 0; cursor: pointer; padding: 0.375rem 0.625rem; font: inherit; font-family: var(--mono); font-size: 0.8125rem; font-weight: 700; color: var(--ink); }
+      .remove-btn:hover { background: var(--ink); color: var(--paper); }
+      .addback-btn { background: var(--yellow); border: 2px solid var(--ink); border-radius: 0; cursor: pointer; padding: 0.375rem 0.625rem; font: inherit; font-family: var(--mono); font-size: 0.8125rem; font-weight: 700; color: var(--ink); }
+      .addback-btn:hover { background: var(--ink); color: var(--paper); }
+      .card-detail { margin-top: 0.875rem; border-top: 3px solid var(--ink); padding-top: 0.875rem; font-size: 0.9375rem; line-height: 1.7; }
       .card-detail p { margin: 0 0 0.5rem; }
       .card-detail ul { margin: 0 0 0.5rem; padding-left: 1.25rem; }
-      .card-detail .small { font-size: 0.75rem; color: var(--dim); }
-      .card-detail .notice-line { margin-bottom: 0.75rem; }
-      .drag-handle { cursor: grab; color: var(--dim); padding: 0.5rem 0.25rem; user-select: none; touch-action: none; }
+      .card-detail .small { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.02em; color: var(--ink); }
+      .card-detail .notice-line { margin-bottom: 0.875rem; }
+      .drag-handle { cursor: grab; color: var(--blue); font-weight: 700; padding: 0.5rem 0.25rem; user-select: none; touch-action: none; }
 
-      /* 第 5 步预览 */
-      .preview-grid { margin-top: 1.25rem; display: grid; gap: 1.5rem; }
-      @media (min-width: 768px) { .preview-grid { grid-template-columns: 1fr 1fr; } }
-      .plan-list { margin: 0.75rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
-      .plan-item { display: flex; align-items: baseline; gap: 0.5rem; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius); padding: 0.5rem 0.75rem; font-size: 0.875rem; }
-      .plan-item .idx { font-family: var(--font-display); font-weight: 700; color: var(--gold); }
-      .plan-item .nm { display: block; font-weight: 700; line-height: 1.45; }
-      .plan-item .meta { font-size: 0.75rem; color: var(--dim); }
-      .ov-table { margin-top: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-      .ov-row { display: grid; grid-template-columns: 6.5rem 1fr; border-bottom: 1px solid var(--border); background: var(--surface); }
+      /* 第 5 步卡片内的滚动区 */
+      .scrollbox { overflow-y: auto; overscroll-behavior: contain; margin-top: 0.875rem; }
+      .scrollbox.list { max-height: 46vh; }
+      .scrollbox.ovb { max-height: 52vh; }
+      .scrollbox .plan-list { margin-top: 0; }
+      .note .ov-table { box-shadow: none; margin-top: 0; }
+      .plan-list { margin: 1rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.625rem; }
+      .plan-item { display: flex; align-items: baseline; gap: 0.625rem; border: 3px solid var(--ink); background: var(--paper); border-radius: 0; padding: 0.625rem 0.75rem; font-size: 0.875rem; }
+      .plan-item .idx { font-family: var(--en); font-size: 1.125rem; line-height: 1; color: var(--blue); }
+      .plan-item .nm { display: block; font-weight: 900; line-height: 1.45; }
+      .plan-item .meta { font-family: var(--mono); font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.04em; color: var(--ink); }
+      .ov-table { margin-top: 1rem; border: 3px solid var(--ink); box-shadow: 8px 8px 0 var(--ink); }
+      .ov-row { display: grid; grid-template-columns: 6.5rem 1fr; border-bottom: 2px solid var(--ink); background: var(--paper); }
       .ov-row:last-child { border-bottom: none; }
-      .ov-row.empty { background: var(--gold-soft); }
-      .ov-row dt { padding: 0.5rem 0.75rem; text-align: center; font-size: 0.75rem; font-weight: 700; line-height: 1.6; }
+      .ov-row dt { padding: 0.5rem 0.75rem; border-right: 2px solid var(--ink); text-align: center; font-family: var(--mono); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; line-height: 1.6; }
       .ov-row dd { margin: 0; padding: 0.5rem 0.75rem; font-size: 0.875rem; line-height: 1.6; }
+      .ov-row.empty dd { background: var(--yellow); }
       .ov-row dd .pre { white-space: pre-line; }
-      .ov-fill { width: 100%; border: 1px solid var(--gold); background: rgba(255,255,255,0.7); border-radius: 6px; padding: 0.375rem 0.5rem; font: inherit; font-size: 0.875rem; outline: none; }
-      .ov-fill:focus { border-color: var(--accent); }
-      .ok-box { margin-top: 1.25rem; border: 1px solid var(--accent); background: #e7efe9; border-radius: var(--radius); padding: 0.75rem 1rem; font-size: 0.875rem; line-height: 1.7; }
+      .ov-fill { width: 100%; border: 2px solid var(--ink); background: var(--paper); border-radius: 0; padding: 0.375rem 0.5rem; font: inherit; font-size: 0.875rem; outline: none; }
+      .ov-fill:focus { box-shadow: 3px 3px 0 var(--blue); }
+      .ok-box { margin-top: 1rem; border: 3px solid var(--ink); background: var(--blue); color: var(--paper); box-shadow: 6px 6px 0 var(--ink); padding: 0.875rem 1rem; font-size: 0.9375rem; font-weight: 700; line-height: 1.7; }
 
       /* 撤销提示 */
       .toast {
-        position: fixed; left: 1rem; right: 1rem; bottom: 1rem; z-index: 20; margin: 0 auto; max-width: 28rem;
+        position: fixed; left: 1rem; right: 1rem; bottom: calc(var(--hudB) + 14px); z-index: 60; margin: 0 auto; max-width: 30rem;
         display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
-        background: var(--accent-deep); color: #fff; border-radius: var(--radius);
-        padding: 0.75rem 1rem; font-size: 0.875rem; box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+        background: var(--ink); color: var(--paper); border: 3px solid var(--ink); border-radius: 0;
+        box-shadow: 6px 6px 0 var(--blue);
+        padding: 0.75rem 1rem; font-size: 0.875rem; font-weight: 700;
       }
       .toast .tname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .toast button { background: none; border: none; color: var(--gold-bright); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; flex-shrink: 0; padding: 0.5rem; }
+      .toast button { background: none; border: none; color: var(--yellow); font: inherit; font-family: var(--mono); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; flex-shrink: 0; padding: 0.5rem; }
+
+      @media (max-width: 900px) {
+        .hud-hint { display: none; }
+        .hud-steps .step-label { display: none; }
+        .hud-steps .step-label.current { display: inline; }
+        .meta { display: none; }
+      }
+
+      /* ── 窄屏：页面可滚，画布改固定高度竖条，坐标换 mx/my 一套 ── */
+      @media (max-width: 760px) {
+        :root { --hudT: 54px; }
+        html, body { height: auto; }
+        body { overflow-x: hidden; overflow-y: auto; position: relative; min-height: 100%; }
+        body.lock { overflow: hidden; }
+        .hud.top { height: var(--hudT); }
+        .hud.bottom { height: auto; min-height: 66px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 12px; row-gap: 8px; }
+        .hud-steps { gap: 6px; }
+        .hud-steps .step-dot { height: 2.25rem; width: 2.25rem; min-height: 2.25rem; font-size: 0.85rem; }
+        .canvas { position: absolute; top: var(--hudT); bottom: auto; }
+        .canvas.step-1 { height: 1480px; }
+        .canvas.step-2 { height: 1480px; }
+        .canvas.step-3 { height: 2250px; }
+        .canvas.step-5 { height: 1650px; }
+        .canvas.step-4 { position: fixed; top: var(--hudT); bottom: 76px; height: auto; }
+        .note { width: calc(100vw - 36px); padding: 15px 16px 17px; }
+        .note.w-s, .note.w-m, .note.w-l, .note.w-xl, .note.w-xxl { width: calc(100vw - 36px); }
+        .grid3 { grid-template-columns: 1fr; }
+        .scrollbox.list { max-height: 300px; }
+        .scrollbox.ovb { max-height: 340px; }
+        .results-panel { inset: 10px 8px 12px; padding: 20px 14px 36px; }
+        .ctrls { flex-wrap: wrap; }
+        .ctrl-btn { padding: 7px 9px; font-size: 10.5px; }
+        .btn { padding: 0.625rem 1rem; font-size: 0.85rem; }
+        .toast { bottom: 150px; }
+      }
+      @media (max-width: 420px) {
+        .ctrl-sep { display: none; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition: none !important; animation: none !important; }
+      }
     </style>
   </head>
   <body>
-    <main class="wrap" id="app"></main>
+
+    <div class="stage" aria-hidden="true"></div>
+    <header class="hud top" id="hud-top"></header>
+    <main class="canvas step-1" id="field" aria-label="政策匹配工作区"></main>
+    <div class="hud bottom" id="hud-bottom"></div>
     <div id="toast-root"></div>
     <script>
 (() => {
@@ -6653,6 +6799,7 @@
 
     </script>
     <script>
+
 "use strict";
 const L = window.LIB;
 const STEP_LABELS = ["企业信息", "注册与行业", "补关键数", "匹配结果", "生成规划书"];
@@ -6709,22 +6856,64 @@ function computeResults() {
   return { results, included, excluded, held };
 }
 
-const app = document.getElementById("app");
+const field = document.getElementById("field");
 
-function stepsHtml() {
-  let h = '<ol class="steps" aria-label="办理进度">';
+/* ── 顶部 HUD：步骤块 + 操作提示 ── */
+function renderTopHud() {
+  const hud = document.getElementById("hud-top");
+  let h = '<ol class="hud-steps" aria-label="办理进度">';
   STEP_LABELS.forEach((label, i) => {
     const n = i + 1;
     const state = n === S.step ? "current" : n < S.step ? "done" : "todo";
     const clickable = n <= S.maxStep && n !== S.step;
     h += '<li>' +
-      (i > 0 ? '<span class="bar' + (n <= S.step ? " done" : "") + '" aria-hidden="true"></span>' : "") +
       '<button type="button" class="step-dot ' + state + (clickable ? " clickable" : "") + '" data-act="gostep" data-step="' + n + '"' +
       (clickable ? "" : " disabled") + ' aria-label="第 ' + n + ' 步：' + label + '"' +
       (state === "current" ? ' aria-current="step"' : "") + '>' + (state === "done" ? "✓" : n) + "</button>" +
       '<span class="step-label' + (state === "current" ? " current" : "") + '">' + label + "</span></li>";
   });
-  return h + '</ol><div class="gold-rule" aria-hidden="true"></div>';
+  h += "</ol>";
+  if (S.step === 4) {
+    h += '<div class="hud-hint">结果在面板里滚动查看<br>点政策名展开详情</div>';
+  } else {
+    h += '<div class="hud-hint">按住卡片拖动 · 双击旋转<br><b>R</b> 复位 &nbsp;<b>S</b> 打乱 &nbsp;<b>G</b> 吸附</div>';
+  }
+  hud.innerHTML = h;
+}
+
+/* ── 底部 HUD：读数 + 画布控制 + 上一步/下一步 ── */
+function renderBottomHud() {
+  const hud = document.getElementById("hud-bottom");
+  const canvas = S.step !== 4;
+  let h = '<div class="meta" id="meta-read"></div><div class="ctrls">';
+  if (canvas) {
+    h += '<button type="button" class="ctrl-btn" id="btn-shuffle">打乱重排</button>' +
+      '<button type="button" class="ctrl-btn" id="btn-reset">恢复初始</button>' +
+      '<button type="button" class="ctrl-btn" id="btn-snap" aria-pressed="' + (snapOn ? "true" : "false") + '">吸附网格</button>' +
+      '<span class="ctrl-sep" aria-hidden="true"></span>';
+  }
+  if (S.step > 1) {
+    h += '<button type="button" class="btn btn-outline" data-act="gostep" data-step="' + (S.step - 1) + '">← 上一步</button>';
+  }
+  if (S.step === 1) h += '<button type="button" class="btn btn-primary" data-act="to2">下一步：注册地址与行业 →</button>';
+  else if (S.step === 2) h += '<button type="button" class="btn btn-primary" data-act="to3">下一步：补关键数 →</button>';
+  else if (S.step === 3) h += '<button type="button" class="btn btn-primary" data-act="to4">看匹配结果 →</button>';
+  else if (S.step === 4) {
+    const c = computeResults();
+    h += '<button type="button" class="btn btn-primary" data-act="to5"' + (c.included.length === 0 ? " disabled" : "") + ">下一步：确认出书 →</button>";
+  } else if (S.step === 5) {
+    const c5 = computeResults();
+    h += '<button type="button" class="btn btn-primary" data-act="generate"' + (c5.included.length === 0 ? " disabled" : "") + ">生成规划书（下载）</button>" +
+      '<button type="button" class="btn-ghost" data-act="restart">再查一家企业</button>';
+  }
+  h += "</div>";
+  hud.innerHTML = h;
+  if (canvas) {
+    document.getElementById("btn-shuffle").addEventListener("click", shuffleNotes);
+    document.getElementById("btn-reset").addEventListener("click", resetNotes);
+    document.getElementById("btn-snap").addEventListener("click", toggleSnap);
+  }
+  updateMeta();
 }
 
 function fieldHtml(label, inner, required) {
@@ -6733,31 +6922,40 @@ function fieldHtml(label, inner, required) {
 function inp(id, val, attrs) {
   return '<input id="' + id + '" class="inp" value="' + esc(val) + '" ' + (attrs || "") + " />";
 }
-function navHtml(backStep, nextLabel, nextAct, nextDisabled) {
-  return '<div class="nav-row">' +
-    (backStep ? '<button type="button" class="btn btn-outline" data-act="gostep" data-step="' + backStep + '">← 上一步</button>' : "") +
-    '<button type="button" class="btn btn-primary" data-act="' + nextAct + '"' + (nextDisabled ? " disabled" : "") + ">" + nextLabel + "</button></div>";
+
+/* 可拖卡片：coords = [桌面x, 桌面y, 窄屏x, 窄屏y, 初始旋转角]，位置用比例不用像素 */
+function note(cid, cls, coords, inner) {
+  return '<div class="note ' + cls + '" data-cid="' + cid + '"' +
+    ' data-x="' + coords[0] + '" data-y="' + coords[1] + '" data-mx="' + coords[2] + '" data-my="' + coords[3] + '" data-r="' + coords[4] + '">' +
+    inner + "</div>";
+}
+function introCard(stepNo, stepName, title, lede, extra) {
+  return '<div class="k">Step ' + stepNo + " / " + stepName + "</div>" +
+    '<h1 class="page-title">' + title + "</h1>" +
+    '<p class="lede">' + lede + "</p>" + (extra || "") +
+    (S.error ? '<p class="error-text" role="alert">' + esc(S.error) + "</p>" : "");
 }
 
 function renderStep1() {
   const f = S.f;
-  let h = stepsHtml();
-  h += '<section aria-label="第 1 步：填写企业基本信息">' +
-    '<h1 class="page-title">填写企业基本信息</h1>' +
-    '<p class="lede">这个网址版没有后台查询，企业信息由你手动填写：先填企业名称、成立年份、注册资本和法定代表人，下一步再填注册地址、所在区和所属行业。没填的信息不会编造，规划书里会留空。</p>' +
-    '<div class="form-stack">' +
-    fieldHtml("企业全称", inp("f-name", f.name, 'placeholder="如：北京久事神康医疗科技有限公司" autocomplete="off"'), true) +
-    '<div class="grid2">' +
-    fieldHtml("成立年份", inp("f-foundedYear", f.foundedYear, 'inputmode="numeric" placeholder="如 2016"')) +
-    fieldHtml("注册资本", inp("f-registeredCapital", f.registeredCapital, 'placeholder="如 1386.0801万元"')) +
-    "</div>" +
-    fieldHtml("法定代表人", inp("f-legalRep", f.legalRep, 'placeholder="法定代表人姓名"')) +
-    "</div>" +
-    (S.error ? '<p class="error-text" role="alert">' + esc(S.error) + "</p>" : "") +
-    navHtml(0, "下一步：注册地址与行业 →", "to2") +
-    '<p class="fine">政策库共 299 条：市级/国家级 79 条 + 北京 16 区区级 220 条。</p>' +
-    "</section>";
-  app.innerHTML = h;
+  field.className = "canvas step-1";
+  field.innerHTML =
+    note("intro", "intro w-l", [0.015, 0.03, 0.04, 0.003, -1], introCard("01", "企业信息", "填写企业基本信息",
+      "这个网址版没有后台查询，企业信息由你手动填写：先填企业名称、成立年份、注册资本和法定代表人，下一步再填注册地址、所在区和所属行业。没填的信息不会编造，规划书里会留空。",
+      '<p class="fine">政策库共 299 条：市级/国家级 79 条 + 北京 16 区区级 220 条。卡片可以拖动摆放。</p>')) +
+    note("name", "w-l", [0.95, 0.05, 0.05, 0.225, 1.2],
+      '<div class="k">Card A · 企业全称</div><div class="card-fields">' +
+      fieldHtml("企业全称", inp("f-name", f.name, 'placeholder="如：北京久事神康医疗科技有限公司" autocomplete="off"'), true) +
+      "</div>") +
+    note("found", "w-m", [0.03, 0.9, 0.05, 0.415, 0.8],
+      '<div class="k">Card B · 成立与资本</div><div class="card-fields">' +
+      fieldHtml("成立年份", inp("f-foundedYear", f.foundedYear, 'inputmode="numeric" placeholder="如 2016"')) +
+      fieldHtml("注册资本", inp("f-registeredCapital", f.registeredCapital, 'placeholder="如 1386.0801万元"')) +
+      "</div>") +
+    note("legal", "w-s", [0.93, 0.55, 0.06, 0.63, -1.6],
+      '<div class="k">Card C · 法定代表人</div><div class="card-fields">' +
+      fieldHtml("法定代表人", inp("f-legalRep", f.legalRep, 'placeholder="法定代表人姓名"')) +
+      "</div>");
   bindInputs({ "f-name": ["f", "name"], "f-foundedYear": ["f", "foundedYear"], "f-registeredCapital": ["f", "registeredCapital"], "f-legalRep": ["f", "legalRep"] });
 }
 
@@ -6775,24 +6973,24 @@ function majorOptions(catLetter, sel) {
 
 function renderStep2() {
   const f = S.f;
-  let h = stepsHtml();
-  h += '<section aria-label="第 2 步：注册地址、所在区与行业">' +
-    '<h1 class="page-title">注册地址、所在区与行业</h1>' +
-    '<p class="lede">所在区决定能匹配哪些区级政策，行业按国标 GB/T 4754—2017 两级选择（先选门类、再选大类），决定能匹配哪些行业专项政策。</p>' +
-    '<div class="form-stack">' +
-    fieldHtml("注册地址", inp("f-registeredAddress", f.registeredAddress, 'placeholder="注册地址原文"')) +
-    '<div class="grid2">' +
-    fieldHtml("所在区", '<select id="f-district" class="sel" aria-label="所在区">' + districtOptions(f.district) + "</select>", true) +
-    fieldHtml("法定代表人", inp("f-legalRep2", f.legalRep, 'placeholder="法定代表人姓名"')) +
-    "</div>" +
-    '<div class="grid2">' +
-    fieldHtml("所属行业（门类）", '<select id="f-industryCat" class="sel" aria-label="所属行业门类">' + catOptions(f.industryCat) + "</select>") +
-    fieldHtml("所属行业（大类）", '<select id="f-industryMajor" class="sel" aria-label="所属行业大类"' + (f.industryCat ? "" : " disabled") + ">" + majorOptions(f.industryCat, f.industryMajor) + "</select>") +
-    "</div></div>" +
-    (S.error ? '<p class="error-text" role="alert">' + esc(S.error) + "</p>" : "") +
-    navHtml(1, "下一步：补关键数 →", "to3") +
-    "</section>";
-  app.innerHTML = h;
+  field.className = "canvas step-2";
+  field.innerHTML =
+    note("intro", "intro w-l", [0.015, 0.03, 0.04, 0.003, -1], introCard("02", "注册与行业", "注册地址、所在区与行业",
+      "所在区决定能匹配哪些区级政策，行业按国标 GB/T 4754—2017 两级选择（先选门类、再选大类），决定能匹配哪些行业专项政策。")) +
+    note("addr", "w-l", [0.96, 0.04, 0.05, 0.225, 1],
+      '<div class="k">Card A · 注册地址</div><div class="card-fields">' +
+      fieldHtml("注册地址", inp("f-registeredAddress", f.registeredAddress, 'placeholder="注册地址原文"')) +
+      "</div>") +
+    note("district", "w-m", [0.04, 0.88, 0.05, 0.4, -1.4],
+      '<div class="k">Card B · 所在区与法人</div><div class="card-fields">' +
+      fieldHtml("所在区", '<select id="f-district" class="sel" aria-label="所在区">' + districtOptions(f.district) + "</select>", true) +
+      fieldHtml("法定代表人", inp("f-legalRep2", f.legalRep, 'placeholder="法定代表人姓名"')) +
+      "</div>") +
+    note("industry", "w-m", [0.95, 0.52, 0.05, 0.615, 1.6],
+      '<div class="k">Card C · 所属行业</div><div class="card-fields">' +
+      fieldHtml("所属行业（门类）", '<select id="f-industryCat" class="sel" aria-label="所属行业门类">' + catOptions(f.industryCat) + "</select>") +
+      fieldHtml("所属行业（大类）", '<select id="f-industryMajor" class="sel" aria-label="所属行业大类"' + (f.industryCat ? "" : " disabled") + ">" + majorOptions(f.industryCat, f.industryMajor) + "</select>") +
+      "</div>");
   bindInputs({ "f-registeredAddress": ["f", "registeredAddress"], "f-legalRep2": ["f", "legalRep"] });
   document.getElementById("f-district").addEventListener("change", (e) => { S.f.district = e.target.value; });
   document.getElementById("f-industryCat").addEventListener("change", (e) => {
@@ -6803,43 +7001,45 @@ function renderStep2() {
 
 function renderStep3() {
   const n = S.n;
-  let h = stepsHtml();
-  h += '<section aria-label="第 3 步：补录关键数">' +
-    '<h1 class="page-title">补几个关键数</h1>' +
-    '<p class="lede">下面 6 项全部选填：跟客户聊到多少填多少。留空的那些，相关政策会标「待确认」，不会瞎判。填得越全，匹配越准。</p>' +
-    '<div class="form-stack">' +
-    '<div class="grid2">' +
-    fieldHtml("上一年营业收入（万元）", inp("n-revenue", n.revenue, 'inputmode="decimal" placeholder="如 8000"')) +
-    fieldHtml("上一年研发费用（万元）", inp("n-rdExpense", n.rdExpense, 'inputmode="decimal" placeholder="如 900"')) +
-    "</div>" +
-    '<div class="grid2">' +
-    fieldHtml("员工总数（人）", inp("n-employees", n.employees, 'inputmode="numeric" placeholder="如 120"')) +
-    fieldHtml("其中研发人员（人）", inp("n-rdStaff", n.rdStaff, 'inputmode="numeric" placeholder="如 45"')) +
-    "</div>" +
-    '<div class="grid3">' +
-    fieldHtml("发明专利（件）", inp("n-inventionPatents", n.inventionPatents, 'inputmode="numeric" placeholder="如 12"')) +
-    fieldHtml("专利总数（件）", inp("n-totalPatents", n.totalPatents, 'inputmode="numeric" placeholder="如 40"')) +
-    fieldHtml("软件著作权（件）", inp("n-softwareCopyrights", n.softwareCopyrights, 'inputmode="numeric" placeholder="如 8"')) +
-    "</div>" +
-    '<fieldset class="qual"><legend>已获荣誉资质（有的勾上）</legend><div class="qual-grid">' +
-    L.QUALIFICATION_OPTIONS.map((q) => {
-      const checked = S.qualifications.includes(q);
-      return '<label class="qual-item' + (checked ? " checked" : "") + '"><input type="checkbox" data-qual="' + esc(q) + '"' + (checked ? " checked" : "") + " />" + esc(q) + "</label>";
-    }).join("") +
-    "</div></fieldset>" +
-    fieldHtml("主导产品（一句话，会写进规划书概况）", inp("mainProduct", S.mainProduct, 'placeholder="如：颅内取栓支架、血流导向密网支架等神经介入器械"')) +
-    "</div>" +
-    (S.error ? '<p class="error-text" role="alert">' + esc(S.error) + "</p>" : "") +
-    navHtml(2, "看匹配结果 →", "to4") +
-    "</section>";
-  app.innerHTML = h;
+  field.className = "canvas step-3";
+  field.innerHTML =
+    note("intro", "intro w-l", [0, 0, 0.03, 0.002, -1], introCard("03", "补关键数", "补几个关键数",
+      "下面 6 项全部选填：跟客户聊到多少填多少。留空的那些，相关政策会标「待确认」，不会瞎判。填得越全，匹配越准。")) +
+    note("rev", "w-m", [0.47, 0.02, 0.04, 0.185, 1.2],
+      '<div class="k">Card A · 营收与研发</div><div class="card-fields">' +
+      fieldHtml("上一年营业收入（万元）", inp("n-revenue", n.revenue, 'inputmode="decimal" placeholder="如 8000"')) +
+      fieldHtml("上一年研发费用（万元）", inp("n-rdExpense", n.rdExpense, 'inputmode="decimal" placeholder="如 900"')) +
+      "</div>") +
+    note("staff", "w-m", [0.97, 0.03, 0.05, 0.335, -1],
+      '<div class="k">Card B · 人员</div><div class="card-fields">' +
+      fieldHtml("员工总数（人）", inp("n-employees", n.employees, 'inputmode="numeric" placeholder="如 120"')) +
+      fieldHtml("其中研发人员（人）", inp("n-rdStaff", n.rdStaff, 'inputmode="numeric" placeholder="如 45"')) +
+      "</div>") +
+    note("ip", "w-l", [0.02, 0.55, 0.04, 0.475, 0.8],
+      '<div class="k">Card C · 知识产权</div><div class="card-fields"><div class="grid3">' +
+      fieldHtml("发明专利（件）", inp("n-inventionPatents", n.inventionPatents, 'inputmode="numeric" placeholder="如 12"')) +
+      fieldHtml("专利总数（件）", inp("n-totalPatents", n.totalPatents, 'inputmode="numeric" placeholder="如 40"')) +
+      fieldHtml("软件著作权（件）", inp("n-softwareCopyrights", n.softwareCopyrights, 'inputmode="numeric" placeholder="如 8"')) +
+      "</div></div>") +
+    note("qual", "w-xl", [0.98, 0.97, 0.05, 0.68, -0.6],
+      '<div class="k">Card D · 已获荣誉资质</div>' +
+      '<fieldset class="qual"><legend>已获荣誉资质（有的勾上）</legend><div class="qual-grid">' +
+      L.QUALIFICATION_OPTIONS.map((q) => {
+        const checked = S.qualifications.includes(q);
+        return '<label class="qual-item' + (checked ? " checked" : "") + '"><input type="checkbox" data-qual="' + esc(q) + '"' + (checked ? " checked" : "") + " />" + esc(q) + "</label>";
+      }).join("") +
+      "</div></fieldset>") +
+    note("product", "w-l", [0.48, 0.58, 0.05, 0.85, 1.4],
+      '<div class="k">Card E · 主导产品</div><div class="card-fields">' +
+      fieldHtml("主导产品（一句话，会写进规划书概况）", inp("mainProduct", S.mainProduct, 'placeholder="如：颅内取栓支架、血流导向密网支架等神经介入器械"')) +
+      "</div>");
   bindInputs({
     "n-revenue": ["n", "revenue"], "n-rdExpense": ["n", "rdExpense"],
     "n-employees": ["n", "employees"], "n-rdStaff": ["n", "rdStaff"],
     "n-inventionPatents": ["n", "inventionPatents"], "n-totalPatents": ["n", "totalPatents"],
     "n-softwareCopyrights": ["n", "softwareCopyrights"], "mainProduct": [null, "mainProduct"]
   });
-  app.querySelectorAll("[data-qual]").forEach((cb) => {
+  field.querySelectorAll("[data-qual]").forEach((cb) => {
     cb.addEventListener("change", (e) => {
       const q = e.target.getAttribute("data-qual");
       if (e.target.checked) { if (!S.qualifications.includes(q)) S.qualifications.push(q); }
@@ -7034,11 +7234,14 @@ function cardHtml(r, p, opts) {
     "</button></div>" + actions + "</div>" + detail + "</div>";
 }
 
+
 function renderStep4() {
   const p = profile();
   const c = computeResults();
-  let h = stepsHtml();
-  h += '<section aria-label="第 4 步：匹配结果">' +
+  const prevPanel = document.getElementById("results-panel");
+  const prevScroll = prevPanel ? prevPanel.scrollTop : 0;
+  field.className = "canvas step-4";
+  let h = '<div class="results-panel" id="results-panel">' +
     '<h1 class="page-title">匹配结果</h1>' +
     '<p class="lede">' + esc(p.name) + " · " + esc(p.district) + (L.industryFullLabel(p) ? " · " + esc(L.industryFullLabel(p)) : "") +
     "。共匹配 " + c.results.length + " 条：已纳入 " + c.included.length + " 条、未纳入 " + c.excluded.length + " 条、已持有 " + c.held.length + " 条。</p>" +
@@ -7058,8 +7261,10 @@ function renderStep4() {
     h += '<h2 class="zone-title dim"><button type="button" class="zone-toggle font-display" data-act="toggleHeld" aria-expanded="' + S.showHeld + '">已持有（' + c.held.length + " 条）" + (S.showHeld ? " ▾" : " ▸") + "</button></h2>";
     if (S.showHeld) h += '<div class="card-list">' + c.held.map((r) => cardHtml(r, p, { zone: "held" })).join("") + "</div>";
   }
-  h += navHtml(3, "下一步：确认出书 →", "to5", c.included.length === 0) + "</section>";
-  app.innerHTML = h;
+  h += "</div>";
+  field.innerHTML = h;
+  const panel = document.getElementById("results-panel");
+  if (panel) panel.scrollTop = prevScroll;
   bindDrag();
 }
 
@@ -7067,46 +7272,45 @@ function renderStep5() {
   const p = profile();
   const c = computeResults();
   const rows = L.buildOverviewRows(p, S.overrides);
-  let h = stepsHtml();
-  h += '<section aria-label="第 5 步：确认并生成规划书">' +
-    '<h1 class="page-title">确认后生成规划书</h1>' +
-    '<p class="lede">左边是将写进规划书的项目（按这个顺序），右边是企业概况将填入的内容。概况里空着的格子标了底色，可以当场补；实在没有就空着出书，不会替企业编。</p>' +
-    '<div class="preview-grid"><div>' +
-    '<h2 class="zone-title" style="margin-top:0">项目清单（' + c.included.length + " 条）</h2>" +
-    '<ol class="plan-list">' +
-    c.included.map((r, i) => {
-      const su = policySrcUrl(r.policy);
-      const nu = su ? null : policyNoticeUrl(r.policy);
-      const nm = su
-        ? '<a href="' + esc(su) + '" target="_blank" rel="noopener noreferrer" title="在发布机构官网查看政策原文">' + esc(r.policy.name) + ' <span class="src-arrow" aria-hidden="true">↗</span></a>'
-        : (nu
-          ? '<a href="' + esc(nu) + '" target="_blank" rel="noopener noreferrer" title="查看官方申报通知">' + esc(r.policy.name) + ' <span class="src-arrow" aria-hidden="true">↗</span></a>'
-          : esc(r.policy.name));
-      return '<li class="plan-item"><span class="idx">' + (i + 1) + '</span><span style="flex:1;min-width:0"><span class="nm">' + nm + '</span><span class="meta">' + esc(r.policy.dept) + " · " + esc(L.planYear(r, p)) + '</span></span><span class="chip ' + STATUS_CHIP[r.status] + '">' + r.status + "</span></li>";
-    }).join("") + "</ol>" +
-    (c.included.length === 0 ? '<p class="lede">清单是空的，请回第 4 步纳入项目后再出书。</p>' : "") +
-    "</div><div>" +
-    '<h2 class="zone-title" style="margin-top:0">企业概况（将填入规划书）</h2>' +
-    '<dl class="ov-table">' +
-    rows.map((row) => {
-      const empty = row.value.trim() === "";
-      const editable = row.label !== "沟通记录" && row.label !== "企业名称";
-      const cell = empty && editable
-        ? '<input class="ov-fill" data-ov="' + esc(row.label) + '" placeholder="空缺，可当场补填" aria-label="补填' + esc(row.label) + '" value="' + esc(S.overrides[row.label] || "") + '" />'
-        : '<span class="pre">' + esc(row.value || "（空）") + "</span>";
-      return '<div class="ov-row' + (empty ? " empty" : "") + '"><dt>' + esc(row.label) + "</dt><dd>" + cell + "</dd></div>";
-    }).join("") +
-    "</dl></div></div>";
-  if (S.generated) {
-    h += '<p class="ok-box" role="status">规划书已生成并开始下载，文件名《' + esc(p.name) + '-项目规划书.docx》，用 Word 或 WPS 打开就能发给客户。如需调整，点「上一步」回匹配结果改完再重新生成。</p>';
-  }
-  h += '<div class="nav-row">' +
-    '<button type="button" class="btn btn-outline" data-act="gostep" data-step="4">← 上一步</button>' +
-    '<button type="button" class="btn btn-primary" data-act="generate"' + (c.included.length === 0 ? " disabled" : "") + ">生成规划书（下载）</button>" +
-    '<button type="button" class="btn-ghost" data-act="restart">再查一家企业</button></div>' +
-    "</section>";
-  app.innerHTML = h;
-  app.querySelectorAll("[data-ov]").forEach((el) => {
+  field.className = "canvas step-5";
+  const okCard = S.generated
+    ? note("ok", "ok-note w-s", [0.47, 0.03, 0.05, 0.86, 1.2],
+      '<div class="k">Done · 已生成</div><p role="status">规划书已生成并开始下载，文件名《' + esc(p.name) + '-项目规划书.docx》，用 Word 或 WPS 打开就能发给客户。如需调整，点「上一步」回匹配结果改完再重新生成。</p>')
+    : "";
+  field.innerHTML =
+    note("intro", "intro w-l", [0.01, 0, 0.04, 0.003, -1], introCard("05", "生成规划书", "确认后生成规划书",
+      "右边的卡片是将写进规划书的项目清单（按这个顺序），下方的卡片是企业概况将填入的内容。概况里空着的格子标了底色，可以当场补；实在没有就空着出书，不会替企业编。")) +
+    note("list", "w-xxl", [0.97, 0.02, 0.05, 0.27, 0],
+      '<div class="k">Card A · 出书清单</div>' +
+      '<h2 class="zone-title" style="margin-top:0">项目清单（' + c.included.length + " 条）</h2>" +
+      '<div class="scrollbox list"><ol class="plan-list">' +
+      c.included.map((r, i) => {
+        const su = policySrcUrl(r.policy);
+        const nu = su ? null : policyNoticeUrl(r.policy);
+        const nm = su
+          ? '<a href="' + esc(su) + '" target="_blank" rel="noopener noreferrer" title="在发布机构官网查看政策原文">' + esc(r.policy.name) + ' <span class="src-arrow" aria-hidden="true">↗</span></a>'
+          : (nu
+            ? '<a href="' + esc(nu) + '" target="_blank" rel="noopener noreferrer" title="查看官方申报通知">' + esc(r.policy.name) + ' <span class="src-arrow" aria-hidden="true">↗</span></a>'
+            : esc(r.policy.name));
+        return '<li class="plan-item"><span class="idx">' + (i + 1) + '</span><span style="flex:1;min-width:0"><span class="nm">' + nm + '</span><span class="meta">' + esc(r.policy.dept) + " · " + esc(L.planYear(r, p)) + '</span></span><span class="chip ' + STATUS_CHIP[r.status] + '">' + r.status + "</span></li>";
+      }).join("") + "</ol>" +
+      (c.included.length === 0 ? '<p class="lede">清单是空的，请回第 4 步纳入项目后再出书。</p>' : "") +
+      "</div>") +
+    note("overview", "w-xl", [0, 1, 0.04, 0.64, 0.6],
+      '<div class="k">Card B · 企业概况</div>' +
+      '<h2 class="zone-title" style="margin-top:0">企业概况（将填入规划书）</h2>' +
+      '<div class="scrollbox ovb"><dl class="ov-table">' +
+      rows.map((row) => {
+        const empty = row.value.trim() === "";
+        const editable = row.label !== "沟通记录" && row.label !== "企业名称";
+        const cell = empty && editable
+          ? '<input class="ov-fill" data-ov="' + esc(row.label) + '" placeholder="空缺，可当场补填" aria-label="补填' + esc(row.label) + '" value="' + esc(S.overrides[row.label] || "") + '" />'
+          : '<span class="pre">' + esc(row.value || "（空）") + "</span>";
+        return '<div class="ov-row' + (empty ? " empty" : "") + '"><dt>' + esc(row.label) + "</dt><dd>" + cell + "</dd></div>";
+      }).join("") +
+      "</dl></div>") +
+    okCard;
+  field.querySelectorAll("[data-ov]").forEach((el) => {
     el.addEventListener("input", (e) => { S.overrides[e.target.getAttribute("data-ov")] = e.target.value; });
   });
 }
@@ -7123,7 +7327,7 @@ function bindInputs(map) {
   });
 }
 function bindDrag() {
-  app.querySelectorAll("[data-dragkey]").forEach((card) => {
+  field.querySelectorAll("[data-dragkey]").forEach((card) => {
     card.addEventListener("dragstart", (e) => {
       dragKey = card.getAttribute("data-dragkey");
       card.classList.add("dragging");
@@ -7148,6 +7352,203 @@ function bindDrag() {
   });
 }
 
+/* ── 拖拽画布引擎：Pointer Events + 比例坐标落位 ── */
+const GRID = 8;
+let zTop = 10;
+let snapOn = true;
+let dragCount = 0;
+let notes = [];
+const posStore = {};
+const mqMobile = window.matchMedia("(max-width: 760px)");
+let lastMobile = mqMobile.matches;
+
+function storeKey(el) { return S.step + ":" + el.getAttribute("data-cid"); }
+function limitsOf(el) {
+  return {
+    maxX: Math.max(0, field.clientWidth - el.offsetWidth),
+    maxY: Math.max(0, field.clientHeight - el.offsetHeight)
+  };
+}
+function clampTo(el, x, y) {
+  const f = limitsOf(el);
+  return { x: Math.min(Math.max(0, x), f.maxX), y: Math.min(Math.max(0, y), f.maxY) };
+}
+function place(el, x, y, rot) {
+  el.style.transform = "translate(" + x.toFixed(1) + "px," + y.toFixed(1) + "px) rotate(" + rot + "deg)";
+  el.dataset.px = x;
+  el.dataset.py = y;
+  el.dataset.rot = rot;
+}
+function setFrac(el, x, y) {
+  const f = limitsOf(el);
+  const fx = f.maxX > 0 ? Math.min(1, Math.max(0, x / f.maxX)) : 0;
+  const fy = f.maxY > 0 ? Math.min(1, Math.max(0, y / f.maxY)) : 0;
+  el.dataset.fx = fx.toFixed(4);
+  el.dataset.fy = fy.toFixed(4);
+  posStore[storeKey(el)] = { fx: fx, fy: fy, rot: parseFloat(el.dataset.rot) || 0, z: el.style.zIndex };
+}
+function seedOf(el) {
+  const m = mqMobile.matches && el.getAttribute("data-mx") !== null;
+  return {
+    fx: parseFloat(m ? el.getAttribute("data-mx") : el.getAttribute("data-x")) || 0,
+    fy: parseFloat(m ? el.getAttribute("data-my") : el.getAttribute("data-y")) || 0
+  };
+}
+function layoutNotes(mode) {
+  notes.forEach((el) => {
+    let fx, fy, rot;
+    const st = posStore[storeKey(el)];
+    if (mode !== "initial" && st) {
+      fx = st.fx; fy = st.fy; rot = st.rot;
+      if (st.z) el.style.zIndex = st.z;
+    } else if (mode !== "initial" && el.dataset.fx !== undefined && el.dataset.fx !== "") {
+      fx = parseFloat(el.dataset.fx); fy = parseFloat(el.dataset.fy); rot = parseFloat(el.dataset.rot) || 0;
+    } else {
+      const c = seedOf(el);
+      fx = c.fx; fy = c.fy; rot = parseFloat(el.getAttribute("data-r")) || 0;
+    }
+    if (!isFinite(fx)) fx = 0;
+    if (!isFinite(fy)) fy = 0;
+    if (!isFinite(rot)) rot = 0;
+    const f = limitsOf(el);
+    const p = clampTo(el, fx * f.maxX, fy * f.maxY);
+    place(el, p.x, p.y, rot);
+    setFrac(el, p.x, p.y);
+  });
+}
+function updateMeta() {
+  const m = document.getElementById("meta-read");
+  if (!m) return;
+  if (S.step === 4) {
+    const c = computeResults();
+    m.textContent = "共 " + c.results.length + " 条 · 已纳入 " + c.included.length + " 条 · 已持有 " + c.held.length + " 条";
+    return;
+  }
+  m.innerHTML = notes.length + ' 张卡片 · 已拖动 <b>' + dragCount + '</b> 次 <span class="sep">/</span> 画布 <b>' + field.clientWidth + " × " + field.clientHeight + "</b>";
+}
+function isInteractive(t) {
+  return !!(t && t.closest && t.closest("input, select, textarea, button, a, label, fieldset"));
+}
+function bindNote(el) {
+  let start = null;
+  let moved = false;
+  el.addEventListener("pointerdown", (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    if (isInteractive(e.target)) return;
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+    start = { mx: e.clientX, my: e.clientY, x: parseFloat(el.dataset.px) || 0, y: parseFloat(el.dataset.py) || 0 };
+    moved = false;
+    el.style.zIndex = ++zTop;
+    el.classList.add("dragging");
+    el.style.transition = "none";
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (!start) return;
+    e.preventDefault();
+    const dx = e.clientX - start.mx, dy = e.clientY - start.my;
+    if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
+    const p = clampTo(el, start.x + dx, start.y + dy);
+    place(el, p.x, p.y, parseFloat(el.dataset.rot) || 0);
+  });
+  function end() {
+    if (!start) return;
+    start = null;
+    el.classList.remove("dragging");
+    el.style.transition = "";
+    if (!moved) { setFrac(el, parseFloat(el.dataset.px) || 0, parseFloat(el.dataset.py) || 0); return; }
+    let x = parseFloat(el.dataset.px) || 0;
+    let y = parseFloat(el.dataset.py) || 0;
+    if (snapOn) {
+      x = Math.round(x / GRID) * GRID;
+      y = Math.round(y / GRID) * GRID;
+    }
+    const p = clampTo(el, x, y);
+    el.style.transition = "transform .2s cubic-bezier(.2,.8,.2,1)";
+    place(el, p.x, p.y, parseFloat(el.dataset.rot) || 0);
+    setFrac(el, p.x, p.y);
+    setTimeout(() => { el.style.transition = ""; }, 220);
+    dragCount += 1;
+    updateMeta();
+  }
+  el.addEventListener("pointerup", end);
+  el.addEventListener("pointercancel", end);
+  el.addEventListener("dblclick", (e) => {
+    if (isInteractive(e.target)) return;
+    const cur = parseFloat(el.dataset.rot) || 0;
+    const base = parseFloat(el.getAttribute("data-r")) || 0;
+    const target = Math.abs(cur) > 90 ? base : cur + 180;
+    el.style.transition = "transform .5s cubic-bezier(.3,1.15,.4,1)";
+    place(el, parseFloat(el.dataset.px) || 0, parseFloat(el.dataset.py) || 0, target);
+    setFrac(el, parseFloat(el.dataset.px) || 0, parseFloat(el.dataset.py) || 0);
+    setTimeout(() => { el.style.transition = ""; }, 520);
+  });
+}
+function initCanvas() {
+  notes = Array.prototype.slice.call(field.querySelectorAll(".note"));
+  notes.forEach((el, i) => {
+    if (!el.style.zIndex) el.style.zIndex = 10 + i;
+    bindNote(el);
+  });
+  layoutNotes("keep");
+}
+function shuffleNotes() {
+  if (!notes.length) return;
+  notes.forEach((el) => {
+    const f = limitsOf(el);
+    const x = Math.random() * f.maxX;
+    const y = Math.random() * f.maxY;
+    const rot = Math.round((Math.random() * 18 - 9) * 10) / 10;
+    el.style.transition = "transform .5s cubic-bezier(.25,.9,.3,1)";
+    place(el, x, y, rot);
+    el.style.zIndex = ++zTop;
+    setFrac(el, x, y);
+    setTimeout(() => { el.style.transition = ""; }, 520);
+  });
+  dragCount += 1;
+  updateMeta();
+}
+function resetNotes() {
+  if (!notes.length) return;
+  zTop = 10;
+  notes.forEach((el, i) => {
+    el.style.transition = "transform .5s cubic-bezier(.25,.9,.3,1)";
+    el.style.zIndex = 10 + i;
+  });
+  zTop = 10 + notes.length;
+  layoutNotes("initial");
+  setTimeout(() => { notes.forEach((el) => { el.style.transition = ""; }); }, 520);
+  dragCount = 0;
+  updateMeta();
+}
+function toggleSnap() {
+  snapOn = !snapOn;
+  const b = document.getElementById("btn-snap");
+  if (b) b.setAttribute("aria-pressed", snapOn ? "true" : "false");
+}
+
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const nowMobile = mqMobile.matches;
+    layoutNotes(nowMobile === lastMobile ? "keep" : "initial");
+    lastMobile = nowMobile;
+    updateMeta();
+  }, 80);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (isInteractive(e.target)) return;
+  if (!notes.length) return;
+  const k = e.key.toLowerCase();
+  if (k === "r") resetNotes();
+  else if (k === "s") shuffleNotes();
+  else if (k === "g") toggleSnap();
+});
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => { layoutNotes("keep"); });
+}
+
 function goStep(n) {
   S.step = n;
   S.maxStep = Math.max(S.maxStep, n);
@@ -7156,11 +7557,15 @@ function goStep(n) {
   window.scrollTo({ top: 0 });
 }
 function render() {
+  document.body.classList.toggle("lock", S.step === 4);
+  renderTopHud();
   if (S.step === 1) renderStep1();
   else if (S.step === 2) renderStep2();
   else if (S.step === 3) renderStep3();
   else if (S.step === 4) renderStep4();
   else renderStep5();
+  initCanvas();
+  renderBottomHud();
   renderToast();
 }
 function renderToast() {
@@ -7177,6 +7582,8 @@ function restart() {
   S.removed = new Set(); S.orderKeys = []; S.expanded = null;
   S.showExcluded = false; S.showHeld = false;
   S.overrides = {}; S.generated = false; S.undo = null; S.error = "";
+  Object.keys(posStore).forEach((k) => { delete posStore[k]; });
+  dragCount = 0; zTop = 10;
   if (undoTimer) clearTimeout(undoTimer);
   render();
   window.scrollTo({ top: 0 });
