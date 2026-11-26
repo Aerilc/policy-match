@@ -135,6 +135,7 @@
       .card-detail p { margin: 0 0 0.5rem; }
       .card-detail ul { margin: 0 0 0.5rem; padding-left: 1.25rem; }
       .card-detail .small { font-size: 0.75rem; color: var(--dim); }
+      .card-detail .notice-line { margin-bottom: 0.75rem; }
       .drag-handle { cursor: grab; color: var(--dim); padding: 0.5rem 0.25rem; user-select: none; touch-action: none; }
 
       /* 第 5 步预览 */
@@ -6942,10 +6943,46 @@ function policySrcUrl(policy) {
   }
   return null;
 }
+/* 申报通知链接：原文页在发文机关官网找不到时，挂官方发布的申报通知页（逐个核实过的官方地址），按政策 key 索引 */
+const NOTICE_URLS = {
+  "::专利产品备案/专利密集型产品认定": "https://www.cnipa.gov.cn/art/2023/7/21/art_75_186487.html",
+  "::专精特新重点“小巨人”企业": "https://jxj.beijing.gov.cn/zwgk/2024zcwj/202602/t20260213_4513032.html",
+  "::中小企业数字化转型/专精特新数字化赋能补助": "https://jxj.beijing.gov.cn/jxdt/tzgg/202306/t20230607_3126173.html",
+  "::制造业中试平台": "https://jxj.beijing.gov.cn/zwgk/2024zcwj/202511/t20251121_4290918.html",
+  "::制造业单项冠军企业": "https://www.miit.gov.cn/jgsj/zfs/gzdt/art/2023/art_69151b1c1165480c979d29c4a997a776.html",
+  "::北京市国际科技创新中心知识产权能力提升计划": "https://zscqj.beijing.gov.cn/zscqj/zwgk/zcwj92/743905718/index.html",
+  "::北京市科学技术奖": "https://kw.beijing.gov.cn/zwgk/zcwj/202505/t20250512_4087173.html",
+  "::国家发展改革委企业技术中心": "https://www.ndrc.gov.cn/xxgk/zcfb/tz/202304/t20230406_1353309.html",
+  "::国家级工业设计中心": "https://www.miit.gov.cn/zwgk/zcwj/wjfb/tz/art/2023/art_ee7c51f4e06649358144d8a4f62efc4b.html",
+  "::工业领域设备更新贷款贴息及技改再贷款": "https://jrs.mof.gov.cn/zhengcefabu/phjr/202601/t20260119_3982162.htm",
+  "::技术先进型服务企业认定": "https://kw.beijing.gov.cn/zwgk/zcwj/202601/t20260105_4401262.html",
+  "::智能工厂梯度培育": "http://www.beijing.gov.cn/zhengce/zhengcefagui/202606/t20260604_4686022.html",
+  "::校（院）企合作平台科研项目": "https://www.ncsti.gov.cn/kjdt/lqjs/sjwj/202606/t20260610_249381.html",
+  "::检验检测促进产业优化升级试点": "https://www.samr.gov.cn/zw/zfxxgk/fdzdgknr/rkjcs/art/2026/art_ff538767267249978dbf4a0955616836.html",
+  "::知识产权服务机构提升国际服务质量支持项目": "https://zscqj.beijing.gov.cn/zscqj/zwgk/zcwj92/744041075/index.html",
+  "::超长期特别国债": "https://www.beijing.gov.cn/zhengce/zhengcefagui/qtwj/202512/t20251231_4381503.html",
+  "::重点应用场景项目": "https://kw.beijing.gov.cn/zwgk/zcwj/202610/t20261028_4921409.html",
+  "::首台（套）重大技术装备保险费补贴": "https://kw.beijing.gov.cn/zwgk/zwgksbrl/202508/t20250812_4171318.html",
+  "::高精尖产业筑基工程揭榜": "https://jxj.beijing.gov.cn/zwgk/2024zcwj/202603/t20260320_4562945.html",
+  "::北京市高精尖老旧厂房改造投资项目": "https://jxj.beijing.gov.cn/jxdt/tzgg/202401/t20240119_3541301.html",
+  "通州区::《关于支持北京城市副中心数字经济高质量发展的实施细则》": "https://www.ncsti.gov.cn/kjdt/tzgg/202609/t20260903_255162.html",
+  "通州区::数字经济备案类支持": "https://www.ncsti.gov.cn/kjdt/tzgg/202609/t20260903_255162.html",
+  "通州区::新型数字基础设施支持": "https://www.ncsti.gov.cn/kjdt/tzgg/202609/t20260903_255162.html",
+  "怀柔区::科学仪器关键技术研发攻关": "https://www.ncsti.gov.cn/kjdt/tzgg/202610/t20261029_260016.html",
+  "怀柔区::产业技术研究院支持（科学仪器）": "https://www.ncsti.gov.cn/kjdt/tzgg/202610/t20261029_260016.html",
+  "怀柔区::《关于精准支持怀柔科学城科学仪器和传感器产业创新发展的若干措施》第九条、第十一条、第十四条": "https://www.ncsti.gov.cn/kjdt/tzgg/202610/t20261029_260016.html",
+  "经开区::绿色低碳支持（2.0版）": "https://kfqgw.beijing.gov.cn/zwgkkfq/2024zcwj/202603/t20260327_4568095.html"
+};
+function policyNoticeUrl(policy) {
+  if (Object.prototype.hasOwnProperty.call(NOTICE_URLS, policy.key)) return NOTICE_URLS[policy.key];
+  return null;
+}
 function srcNameHtml(policy) {
   const u = policySrcUrl(policy);
-  if (!u) return '<span class="card-name">' + esc(policy.name) + "</span>";
-  return '<a class="card-name src-name" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer" title="在发布机构官网查看政策原文">' + esc(policy.name) + ' <span class="src-arrow" aria-hidden="true">↗</span></a>';
+  if (u) return '<a class="card-name src-name" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer" title="在发布机构官网查看政策原文">' + esc(policy.name) + ' <span class="src-arrow" aria-hidden="true">↗</span></a>';
+  const n = policyNoticeUrl(policy);
+  if (n) return '<a class="card-name src-name" href="' + esc(n) + '" target="_blank" rel="noopener noreferrer" title="查看官方申报通知">' + esc(policy.name) + ' <span class="src-arrow" aria-hidden="true">↗</span></a>';
+  return '<span class="card-name">' + esc(policy.name) + "</span>";
 }
 
 const STATUS_CHIP = { "符合": "chip-ok", "差条件": "chip-gap", "待确认": "chip-pending", "已持有": "chip-held" };
@@ -6969,7 +7006,9 @@ function cardHtml(r, p, opts) {
   }
   let detail = "";
   if (expanded) {
+    const noticeU = policyNoticeUrl(r.policy);
     detail = '<div class="card-detail">' +
+      (noticeU ? '<p class="notice-line"><a class="src-btn" href="' + esc(noticeU) + '" target="_blank" rel="noopener noreferrer">查看官方申报通知 ↗</a></p>' : "") +
       "<p><b>主管部门：</b>" + esc(r.policy.auth) + "（归口：" + esc(r.policy.dept) + "）</p>" +
       "<p><b>项目类型：</b>" + esc(r.policy.type) + " · " + esc(r.policy.cat) + "</p>" +
       "<p><b>预计申报时间：</b>" + esc(r.policy.time) + "</p>";
@@ -7003,7 +7042,7 @@ function renderStep4() {
     '<h1 class="page-title">匹配结果</h1>' +
     '<p class="lede">' + esc(p.name) + " · " + esc(p.district) + (L.industryFullLabel(p) ? " · " + esc(L.industryFullLabel(p)) : "") +
     "。共匹配 " + c.results.length + " 条：已纳入 " + c.included.length + " 条、未纳入 " + c.excluded.length + " 条、已持有 " + c.held.length + " 条。</p>" +
-    '<p class="fine" style="margin-top:0.25rem">政策名称带 ↗ 的，点击可直达发布机构官网的原文页面。</p>';
+    '<p class="fine" style="margin-top:0.25rem">政策名称带 ↗ 的，点击可直达官方页面：有原文页的直达原文，没有原文页的直达官方申报通知；展开详情，申报通知链接在最上面。</p>';
   if (!L.hasSpecificBuckets(p)) {
     h += '<p class="note-box">当前行业' + (p.industryCat || p.industryMajor ? "暂无专项政策口径" : "未选择") + "，现在只匹配全行业通用政策；回第 2 步选上行业大类，还能补出该行业的专项政策。</p>";
   }
@@ -7037,9 +7076,12 @@ function renderStep5() {
     '<ol class="plan-list">' +
     c.included.map((r, i) => {
       const su = policySrcUrl(r.policy);
+      const nu = su ? null : policyNoticeUrl(r.policy);
       const nm = su
         ? '<a href="' + esc(su) + '" target="_blank" rel="noopener noreferrer" title="在发布机构官网查看政策原文">' + esc(r.policy.name) + ' <span class="src-arrow" aria-hidden="true">↗</span></a>'
-        : esc(r.policy.name);
+        : (nu
+          ? '<a href="' + esc(nu) + '" target="_blank" rel="noopener noreferrer" title="查看官方申报通知">' + esc(r.policy.name) + ' <span class="src-arrow" aria-hidden="true">↗</span></a>'
+          : esc(r.policy.name));
       return '<li class="plan-item"><span class="idx">' + (i + 1) + '</span><span style="flex:1;min-width:0"><span class="nm">' + nm + '</span><span class="meta">' + esc(r.policy.dept) + " · " + esc(L.planYear(r, p)) + '</span></span><span class="chip ' + STATUS_CHIP[r.status] + '">' + r.status + "</span></li>";
     }).join("") + "</ol>" +
     (c.included.length === 0 ? '<p class="lede">清单是空的，请回第 4 步纳入项目后再出书。</p>' : "") +
