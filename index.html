@@ -286,7 +286,7 @@
         .hud-steps .step-dot { height: 2.25rem; width: 2.25rem; min-height: 2.25rem; font-size: 0.85rem; }
         .canvas { position: absolute; top: var(--hudT); bottom: auto; }
         .canvas.step-1 { height: 1480px; }
-        .canvas.step-2 { height: 1480px; }
+        .canvas.step-2 { height: 1980px; }
         .canvas.step-3 { height: 2250px; }
         .canvas.step-5 { height: 1650px; }
         .canvas.step-4 { position: fixed; top: var(--hudT); bottom: 76px; height: auto; }
@@ -341,8 +341,10 @@
     DISTRICTS: () => DISTRICTS,
     QUALIFICATION_OPTIONS: () => QUALIFICATION_OPTIONS,
     applyOrder: () => applyOrder,
+    FOCUS_OPTIONS: () => FOCUS_OPTIONS,
     autoExcludeReason: () => autoExcludeReason,
     bucketsForProfile: () => bucketsForProfile,
+    specialistExcludeReason: () => specialistExcludeReason,
     defaultOrder: () => defaultOrder,
     hasSpecificBuckets: () => hasSpecificBuckets,
     industryFullLabel: () => industryFullLabel,
@@ -5983,10 +5985,8 @@
       return out;
     if (n >= 13 && n <= 43)
       out.add("制造业");
-    if (n === 27 || n === 35)
+    if (n === 27)
       out.add("医疗");
-    if (n === 34 || n === 35 || n === 38 || n === 39 || n === 40)
-      out.add("机器人");
     if (n >= 63 && n <= 65)
       out.add("软件业");
     if (n >= 73 && n <= 75 || n === 72)
@@ -5996,15 +5996,93 @@
     return out;
   }
   function bucketsForCategory(letter) {
+    // 只选门类、未选大类时，只给门类的主口径，不再把门类下所有大类的专项口径一并打包
+    // （此前选制造业门类即同时拿到医疗、机器人专项，是跨行业串扰的来源之一）。
     const out = new Set;
-    const c = findCategory(letter);
-    if (!c)
-      return out;
-    for (const m of c.majors) {
-      for (const b of bucketsForMajor(m.code))
+    if (letter === "C")
+      out.add("制造业");
+    else if (letter === "I")
+      out.add("软件业");
+    else if (letter === "M")
+      out.add("科技服务业");
+    else if (letter === "Q")
+      out.add("医疗");
+    return out;
+  }
+  // 主营细分方向：行业大类无法区分同一大类下的专项方向（如 35 专用设备制造业同时含
+  // 医疗器械、纺织机械与机器人装备），专项政策改由企业在第 2 步勾选的细分方向准入。
+  var FOCUS_OPTIONS = [
+    { key: "device", label: "医疗器械与高端医疗装备" },
+    { key: "drug", label: "药品与生物制品" },
+    { key: "robot", label: "机器人与具身智能" },
+    { key: "testing", label: "检验检测服务" },
+    { key: "transfer", label: "技术转移与概念验证" },
+    { key: "incubator", label: "孵化器与众创空间运营" },
+    { key: "ipservice", label: "知识产权服务" }
+  ];
+  var FOCUS_BUCKET = { device: "医疗", drug: "医疗", robot: "机器人", testing: "科技服务业", transfer: "科技服务业", incubator: "科技服务业", ipservice: "科技服务业" };
+  function focusSetOf(profile) {
+    const s = new Set(profile.focus || []);
+    // 27 医药制造业方向明确，自动视为药品方向；84 卫生（医疗机构）是高端医疗装备推广应用的申报主体之一
+    if (profile.industryMajor === "27")
+      s.add("drug");
+    return s;
+  }
+  function focusLabel(key) {
+    const f = FOCUS_OPTIONS.find((x) => x.key === key);
+    return f ? f.label : key;
+  }
+  function effectiveBuckets(profile) {
+    const out = bucketsForProfile(profile);
+    for (const k of focusSetOf(profile)) {
+      const b = FOCUS_BUCKET[k];
+      if (b)
         out.add(b);
     }
     return out;
+  }
+  function familyBuckets(profile) {
+    // 制造业大类下的医疗、机器人是它的细分方向：方向不对口时不直接消失，而是进「未纳入」并给理由
+    const out = effectiveBuckets(profile);
+    if (out.has("制造业")) {
+      out.add("医疗");
+      out.add("机器人");
+    }
+    return out;
+  }
+  // 专项政策 → 所需细分方向（申报对象只对本方向开放的，逐条按政策原文口径列名，不凭感觉扩围）
+  var FOCUS_GATE = {
+    "创新医疗器械产业规模化奖励": "device",
+    "创新医疗器械取证奖励": "device",
+    "创新医疗器械特别审查程序": "device",
+    "北京市创新医疗器械特别审查/优先审批程序": "device",
+    "医疗器械国际注册支持": "device",
+    "高端医疗装备推广应用项目": "device",
+    "创新药品产业规模化奖励": "drug",
+    "创新药CDMO提质增效支持": "drug",
+    "人形机器人与具身智能实景实训专项行动": "robot",
+    "创新任务揭榜挂帅（人形机器人与具身智能技术专题）": "robot",
+    "机器人首试首用支持": "robot",
+    "中试平台项目（市发改委）": "robot",
+    "检验检测促进产业优化升级试点": "testing",
+    "北京市技术转移机构登记": "transfer",
+    "概念验证平台建设项目": "transfer",
+    "北京市科技型企业孵化器认定": "incubator",
+    "知识产权服务机构提升国际服务质量支持项目": "ipservice"
+  };
+  function specialistExcludeReason(policy, profile) {
+    const gate = FOCUS_GATE[policy.name];
+    if (gate) {
+      const ok = focusSetOf(profile).has(gate) || (policy.name === "高端医疗装备推广应用项目" && profile.industryMajor === "84");
+      if (!ok)
+        return "申报方向不对口：该政策仅面向「" + focusLabel(gate) + "」方向，企业未确认该细分方向（行业大类本身区分不了同一大类下的专项方向）。企业确属该方向的，回第 2 步勾选对应方向即可纳入，也可点「加回」手动纳入";
+    }
+    if (!isGenericPolicy(policy.inds)) {
+      const eff = effectiveBuckets(profile);
+      if (!policy.inds.some((i) => eff.has(i)))
+        return "行业不对口：该政策面向" + policy.inds.join("、") + "，与企业所属行业及已确认的细分方向不符";
+    }
+    return null;
   }
   function isGenericPolicy(inds) {
     return ALL_BUCKETS.every((b) => inds.includes(b));
@@ -6204,7 +6282,7 @@
     return "";
   }
   function visiblePolicies(profile) {
-    const buckets = bucketsForProfile(profile);
+    const buckets = familyBuckets(profile);
     return POLICIES.filter((p) => {
       const industryOk = isGenericPolicy(p.inds) || p.inds.some((i) => buckets.has(i));
       return industryOk && (p.district === null || p.district === profile.district);
@@ -6489,7 +6567,10 @@
         value: profile.foundedYear != null && age != null ? `${age} 年（${profile.foundedYear} 年成立）` : ""
       },
       { label: "注册资本", value: profile.registeredCapital },
-      { label: "注册地址/通讯地址", value: profile.registeredAddress },
+      {
+        label: "注册地址/通讯地址",
+        value: profile.registeredAddress && profile.mailAddress ? `注册地址：${profile.registeredAddress}／通讯地址：${profile.mailAddress}` : profile.registeredAddress || (profile.mailAddress ? `通讯地址：${profile.mailAddress}` : "")
+      },
       { label: "主营业务", value: profile.mainProduct },
       { label: "所属行业", value: industryFullLabel(profile) },
       { label: "知识产权/标准制定", value: ipParts.join("、") },
@@ -6806,9 +6887,10 @@ const STEP_LABELS = ["企业信息", "注册与行业", "补关键数", "匹配�
 
 const S = {
   step: 1, maxStep: 1,
-  f: { name: "", foundedYear: "", registeredCapital: "", registeredAddress: "", district: "", industryCat: "", industryMajor: "", legalRep: "" },
+  f: { name: "", foundedYear: "", registeredCapital: "", registeredAddress: "", regDistrict: "", mailAddress: "", mailDistrict: "", industryCat: "", industryMajor: "" },
   n: { revenue: "", rdExpense: "", employees: "", rdStaff: "", inventionPatents: "", totalPatents: "", softwareCopyrights: "" },
   qualifications: [], mainProduct: "",
+  focus: [], forceInclude: new Set(),
   removed: new Set(), orderKeys: [], expanded: null,
   showExcluded: false, showHeld: false,
   overrides: {}, generated: false,
@@ -6827,32 +6909,43 @@ function parseNum(s) {
   return Number.isFinite(v) ? v : null;
 }
 function profile() {
+  const regDistrict = S.f.regDistrict;
+  const mailDistrict = S.f.mailDistrict;
   return {
     name: S.f.name.trim(),
     industryCat: S.f.industryCat, industryMajor: S.f.industryMajor,
-    district: S.f.district,
+    district: regDistrict,
+    regDistrict: regDistrict,
+    mailDistrict: mailDistrict,
+    effMailDistrict: mailDistrict || regDistrict,
+    crossDistrict: !!regDistrict && !!mailDistrict && mailDistrict !== regDistrict,
     foundedYear: parseNum(S.f.foundedYear),
     registeredCapital: S.f.registeredCapital.trim(),
     registeredAddress: S.f.registeredAddress.trim(),
-    legalRep: S.f.legalRep.trim(),
+    mailAddress: S.f.mailAddress.trim(),
     revenue: parseNum(S.n.revenue), rdExpense: parseNum(S.n.rdExpense),
     employees: parseNum(S.n.employees), rdStaff: parseNum(S.n.rdStaff),
     inventionPatents: parseNum(S.n.inventionPatents),
     totalPatents: parseNum(S.n.totalPatents),
     softwareCopyrights: parseNum(S.n.softwareCopyrights),
     qualifications: S.qualifications.slice(),
+    focus: S.focus.slice(),
     mainProduct: S.mainProduct.trim()
   };
 }
 function computeResults() {
   const p = profile();
   if (!p.name || !p.district) return { results: [], included: [], excluded: [], held: [] };
-  const results = L.visiblePolicies(p).map((pol) => L.matchPolicy(pol, p));
+  const results = L.visiblePolicies(p).map((pol) => {
+    const r = L.matchPolicy(pol, p);
+    r.autoReason = S.forceInclude.has(pol.key) ? null : (p.crossDistrict && pol.district !== null ? "注册地址与通讯地址不在同一区，区级政策暂不纳入" : L.specialistExcludeReason(pol, p));
+    return r;
+  });
   const held = results.filter((r) => r.status === "已持有");
-  const pool = results.filter((r) => r.status !== "已持有" && !S.removed.has(r.policy.key));
+  const pool = results.filter((r) => r.status !== "已持有" && !r.autoReason && !S.removed.has(r.policy.key));
   const byKey = new Map(pool.map((r) => [r.policy.key, r]));
   const included = L.applyOrder(pool.map((r) => r.policy), S.orderKeys).map((pol) => byKey.get(pol.key)).filter(Boolean);
-  const excluded = results.filter((r) => r.status !== "已持有" && S.removed.has(r.policy.key));
+  const excluded = results.filter((r) => r.status !== "已持有" && (S.removed.has(r.policy.key) || (r.autoReason && !S.forceInclude.has(r.policy.key))));
   return { results, included, excluded, held };
 }
 
@@ -6941,7 +7034,7 @@ function renderStep1() {
   field.className = "canvas step-1";
   field.innerHTML =
     note("intro", "intro w-l", [0.015, 0.03, 0.04, 0.003, -1], introCard("01", "企业信息", "填写企业基本信息",
-      "这个网址版没有后台查询，企业信息由你手动填写：先填企业名称、成立年份、注册资本和法定代表人，下一步再填注册地址、所在区和所属行业。没填的信息不会编造，规划书里会留空。",
+      "这个网址版没有后台查询，企业信息由你手动填写：先填企业名称、成立年份和注册资本，下一步再填注册地址、通讯地址、所在区和所属行业。没填的信息不会编造，规划书里会留空。",
       '<p class="fine">政策库共 299 条：市级/国家级 79 条 + 北京 16 区区级 220 条。卡片可以拖动摆放。</p>')) +
     note("name", "w-l", [0.95, 0.05, 0.05, 0.225, 1.2],
       '<div class="k">Card A · 企业全称</div><div class="card-fields">' +
@@ -6951,16 +7044,12 @@ function renderStep1() {
       '<div class="k">Card B · 成立与资本</div><div class="card-fields">' +
       fieldHtml("成立年份", inp("f-foundedYear", f.foundedYear, 'inputmode="numeric" placeholder="如 2016"')) +
       fieldHtml("注册资本", inp("f-registeredCapital", f.registeredCapital, 'placeholder="如 1386.0801万元"')) +
-      "</div>") +
-    note("legal", "w-s", [0.93, 0.55, 0.06, 0.63, -1.6],
-      '<div class="k">Card C · 法定代表人</div><div class="card-fields">' +
-      fieldHtml("法定代表人", inp("f-legalRep", f.legalRep, 'placeholder="法定代表人姓名"')) +
       "</div>");
-  bindInputs({ "f-name": ["f", "name"], "f-foundedYear": ["f", "foundedYear"], "f-registeredCapital": ["f", "registeredCapital"], "f-legalRep": ["f", "legalRep"] });
+  bindInputs({ "f-name": ["f", "name"], "f-foundedYear": ["f", "foundedYear"], "f-registeredCapital": ["f", "registeredCapital"] });
 }
 
-function districtOptions(sel) {
-  return '<option value="">请选择所在区</option>' + L.DISTRICTS.map((d) => '<option value="' + d + '"' + (d === sel ? " selected" : "") + ">" + d + "</option>").join("");
+function districtOptions(sel, emptyLabel) {
+  return '<option value="">' + (emptyLabel || "请选择所在区") + "</option>" + L.DISTRICTS.map((d) => '<option value="' + d + '"' + (d === sel ? " selected" : "") + ">" + d + "</option>").join("");
 }
 function catOptions(sel) {
   return '<option value="">请选择门类</option>' + L.GB_CATEGORIES.map((c) => '<option value="' + c.letter + '"' + (c.letter === sel ? " selected" : "") + ">" + c.letter + " " + esc(c.name) + "</option>").join("");
@@ -6976,27 +7065,47 @@ function renderStep2() {
   field.className = "canvas step-2";
   field.innerHTML =
     note("intro", "intro w-l", [0.015, 0.03, 0.04, 0.003, -1], introCard("02", "注册与行业", "注册地址、所在区与行业",
-      "所在区决定能匹配哪些区级政策，行业按国标 GB/T 4754—2017 两级选择（先选门类、再选大类），决定能匹配哪些行业专项政策。")) +
+      "区级政策按所在区匹配：注册地址与通讯地址不在同一区时，区级政策暂不纳入规划书（会在匹配结果的「未纳入」里列明，可手动加回）；行业按国标 GB/T 4754—2017 两级选择（先选门类、再选大类）；再勾上企业的主营细分方向，医疗器械、药品、机器人等专项政策只对勾选了对应方向的企业开放，避免不对口的政策混进规划书。")) +
     note("addr", "w-l", [0.96, 0.04, 0.05, 0.225, 1],
       '<div class="k">Card A · 注册地址</div><div class="card-fields">' +
       fieldHtml("注册地址", inp("f-registeredAddress", f.registeredAddress, 'placeholder="注册地址原文"')) +
+      fieldHtml("注册地址所在区", '<select id="f-regDistrict" class="sel" aria-label="注册地址所在区">' + districtOptions(f.regDistrict, "请选择注册地址所在区") + "</select>", true) +
       "</div>") +
-    note("district", "w-m", [0.04, 0.88, 0.05, 0.4, -1.4],
-      '<div class="k">Card B · 所在区与法人</div><div class="card-fields">' +
-      fieldHtml("所在区", '<select id="f-district" class="sel" aria-label="所在区">' + districtOptions(f.district) + "</select>", true) +
-      fieldHtml("法定代表人", inp("f-legalRep2", f.legalRep, 'placeholder="法定代表人姓名"')) +
+    note("mailaddr", "w-m", [0.04, 0.88, 0.05, 0.4, -1.4],
+      '<div class="k">Card B · 通讯地址</div><div class="card-fields">' +
+      fieldHtml("通讯地址", inp("f-mailAddress", f.mailAddress, 'placeholder="通讯地址原文，可留空"')) +
+      fieldHtml("通讯地址所在区", '<select id="f-mailDistrict" class="sel" aria-label="通讯地址所在区">' + districtOptions(f.mailDistrict, "不选＝与注册地址同区") + "</select>") +
+      '<p class="fine" style="margin:0">通讯地址可留空，所在区不选视为与注册地址同区；两个区不一致时，区级政策暂不纳入。</p>' +
       "</div>") +
     note("industry", "w-m", [0.95, 0.52, 0.05, 0.615, 1.6],
       '<div class="k">Card C · 所属行业</div><div class="card-fields">' +
       fieldHtml("所属行业（门类）", '<select id="f-industryCat" class="sel" aria-label="所属行业门类">' + catOptions(f.industryCat) + "</select>") +
       fieldHtml("所属行业（大类）", '<select id="f-industryMajor" class="sel" aria-label="所属行业大类"' + (f.industryCat ? "" : " disabled") + ">" + majorOptions(f.industryCat, f.industryMajor) + "</select>") +
-      "</div>");
-  bindInputs({ "f-registeredAddress": ["f", "registeredAddress"], "f-legalRep2": ["f", "legalRep"] });
-  document.getElementById("f-district").addEventListener("change", (e) => { S.f.district = e.target.value; });
+      "</div>") +
+    note("focus", "w-xl", [0.47, 0.98, 0.05, 0.84, -0.8],
+      '<div class="k">Card D · 主营细分方向</div>' +
+      '<fieldset class="qual"><legend>主营细分方向（可多选，按企业实际主营勾选）</legend>' +
+      '<p class="fine" style="margin-top:0.5rem">同一个行业大类下有多个专项方向（如专用设备制造业含医疗器械、纺织机械、机器人装备），大类区分不了。医疗器械、药品、机器人等专项政策只匹配勾选了对应方向的企业；没勾的方向，相关政策会进「未纳入」并写明原因。</p><div class="qual-grid">' +
+      L.FOCUS_OPTIONS.map((o) => {
+        const checked = S.focus.includes(o.key);
+        return '<label class="qual-item' + (checked ? " checked" : "") + '"><input type="checkbox" data-focus="' + esc(o.key) + '"' + (checked ? " checked" : "") + " />" + esc(o.label) + "</label>";
+      }).join("") +
+      "</div></fieldset>");
+  bindInputs({ "f-registeredAddress": ["f", "registeredAddress"], "f-mailAddress": ["f", "mailAddress"] });
+  document.getElementById("f-regDistrict").addEventListener("change", (e) => { S.f.regDistrict = e.target.value; });
+  document.getElementById("f-mailDistrict").addEventListener("change", (e) => { S.f.mailDistrict = e.target.value; });
   document.getElementById("f-industryCat").addEventListener("change", (e) => {
     S.f.industryCat = e.target.value; S.f.industryMajor = ""; render();
   });
   document.getElementById("f-industryMajor").addEventListener("change", (e) => { S.f.industryMajor = e.target.value; });
+  field.querySelectorAll("[data-focus]").forEach((cb) => {
+    cb.addEventListener("change", (e) => {
+      const k = e.target.getAttribute("data-focus");
+      if (e.target.checked) { if (!S.focus.includes(k)) S.focus.push(k); }
+      else { S.focus = S.focus.filter((x) => x !== k); }
+      render();
+    });
+  });
 }
 
 function renderStep3() {
@@ -7229,7 +7338,7 @@ function cardHtml(r, p, opts) {
     '<div>' + srcNameHtml(r.policy) + ' <span class="chip ' + STATUS_CHIP[r.status] + '">' + (r.status === "已持有" ? "✓ 已持有" : r.status) + "</span></div>" +
     '<button type="button" class="card-toggle" data-act="toggle" data-key="' + esc(key) + '" aria-expanded="' + expanded + '">' +
     '<span class="card-oneline">' + esc(L.oneLiner(r)) + "</span>" +
-    (opts && opts.zone === "excluded" ? '<span class="card-sub">你手动去掉的</span>' : "") +
+    (opts && opts.zone === "excluded" ? (r.autoReason && !S.removed.has(key) ? '<span class="card-sub">系统排除 · ' + esc(r.autoReason) + "</span>" : '<span class="card-sub">你手动去掉的</span>') : "") +
     timingHtml(r, p) +
     "</button></div>" + actions + "</div>" + detail + "</div>";
 }
@@ -7243,7 +7352,7 @@ function renderStep4() {
   field.className = "canvas step-4";
   let h = '<div class="results-panel" id="results-panel">' +
     '<h1 class="page-title">匹配结果</h1>' +
-    '<p class="lede">' + esc(p.name) + " · " + esc(p.district) + (L.industryFullLabel(p) ? " · " + esc(L.industryFullLabel(p)) : "") +
+    '<p class="lede">' + esc(p.name) + " · 注册地址 " + esc(p.regDistrict) + (p.crossDistrict ? " · 通讯地址 " + esc(p.effMailDistrict) + "（两区不一致，区级政策暂不纳入）" : "") + (L.industryFullLabel(p) ? " · " + esc(L.industryFullLabel(p)) : "") +
     "。共匹配 " + c.results.length + " 条：已纳入 " + c.included.length + " 条、未纳入 " + c.excluded.length + " 条、已持有 " + c.held.length + " 条。</p>" +
     '<p class="fine" style="margin-top:0.25rem">政策名称带 ↗ 的，点击可直达官方页面：有原文页的直达原文，没有原文页的直达官方申报通知；展开详情，申报通知链接在最上面。</p>';
   if (!L.hasSpecificBuckets(p)) {
@@ -7576,9 +7685,10 @@ function renderToast() {
 }
 function restart() {
   S.step = 1; S.maxStep = 1;
-  S.f = { name: "", foundedYear: "", registeredCapital: "", registeredAddress: "", district: "", industryCat: "", industryMajor: "", legalRep: "" };
+  S.f = { name: "", foundedYear: "", registeredCapital: "", registeredAddress: "", regDistrict: "", mailAddress: "", mailDistrict: "", industryCat: "", industryMajor: "" };
   S.n = { revenue: "", rdExpense: "", employees: "", rdStaff: "", inventionPatents: "", totalPatents: "", softwareCopyrights: "" };
   S.qualifications = []; S.mainProduct = "";
+  S.focus = []; S.forceInclude = new Set();
   S.removed = new Set(); S.orderKeys = []; S.expanded = null;
   S.showExcluded = false; S.showHeld = false;
   S.overrides = {}; S.generated = false; S.undo = null; S.error = "";
@@ -7600,7 +7710,7 @@ document.addEventListener("click", (e) => {
   } else if (act === "to3") goStep(3);
   else if (act === "to4") {
     if (!S.f.name.trim()) { S.error = "企业名称还没填，请回第 1 步补上"; S.step = 3; render(); return; }
-    if (!S.f.district) { S.error = "所在区还没选：区级政策要按所在区匹配，请回第 2 步选所在区"; render(); return; }
+    if (!S.f.regDistrict) { S.error = "注册地址所在区还没选：区级政策要按注册地址所在区匹配，请回第 2 步选注册地址所在区"; render(); return; }
     goStep(4);
   } else if (act === "to5") goStep(5);
   else if (act === "toggle") {
@@ -7611,6 +7721,7 @@ document.addEventListener("click", (e) => {
     const k = btn.getAttribute("data-key");
     const c = computeResults();
     const r = c.included.find((x) => x.policy.key === k);
+    S.forceInclude.delete(k);
     S.removed.add(k);
     S.undo = { key: k, name: r ? r.policy.name : "" };
     if (undoTimer) clearTimeout(undoTimer);
@@ -7622,7 +7733,9 @@ document.addEventListener("click", (e) => {
     if (undoTimer) clearTimeout(undoTimer);
     render();
   } else if (act === "addback") {
-    S.removed.delete(btn.getAttribute("data-key"));
+    const k = btn.getAttribute("data-key");
+    S.removed.delete(k);
+    S.forceInclude.add(k);
     render();
   } else if (act === "move") {
     const k = btn.getAttribute("data-key");
